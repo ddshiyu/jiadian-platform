@@ -131,6 +131,7 @@ function onError(error) {
     throw error;
   }
 
+  const port = app.get('port');
   var bind = typeof port === 'string'
     ? 'Pipe ' + port
     : 'Port ' + port;
