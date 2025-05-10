@@ -1,0 +1,10 @@
+{
+  "apps": {
+    "name": "jiadian",
+    "script": "./bin/www",
+    "args": [
+      "-e",
+      "development"
+    ]
+  }
+}

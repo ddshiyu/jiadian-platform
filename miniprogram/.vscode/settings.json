@@ -1,0 +1,57 @@
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact",
+    "vue"
+  ],
+  "editor.formatOnSave": false,
+  "editor.defaultFormatter": null,
+  "editor.tokenColorCustomizations": {
+    "textMateRules": [
+      {
+        "scope": "markup.error",
+        "settings": {
+          "foreground": "#ff0000",
+          "fontStyle": "underline"
+        }
+      },
+      {
+        "scope": "markup.warning",
+        "settings": {
+          "foreground": "#FFA500",
+          "fontStyle": "underline"
+        }
+      }
+    ]
+  },
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "eslint.options": {
+    "extensions": [".js", ".jsx", ".ts", ".tsx", ".vue"]
+  },
+  "eslint.probe": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact",
+    "vue"
+  ],
+  "eslint.run": "onType",
+  "eslint.alwaysShowStatus": true,
+  "workbench.colorCustomizations": {
+    "editorError.foreground": "#ff0000",
+    "editorError.border": "#ff0000",
+    "editorWarning.foreground": "#FFA500",
+    "editorWarning.border": "#FFA500",
+    "editorInfo.foreground": "#2196F3",
+    "editorInfo.border": "#2196F3"
+  },
+  "editor.fontLigatures": true,
+  "editor.fontFamily": "'Fira Code', Consolas, 'Courier New', monospace"
+} 

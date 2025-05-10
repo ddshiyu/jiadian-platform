@@ -1,0 +1,187 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app');
+var debug = require('debug')('serve:server');
+var http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+// 引入模型和数据库连接
+const sequelize = require('../config/database');
+const models = require('../models');
+const { AdminUser } = require('../models/admin');
+
+// 配置 SSL 证书和私钥的路径
+const options = {
+  key: fs.readFileSync(path.join(__dirname, '../ssl/www.xinxingbaihuo.cn.key')),
+  cert: fs.readFileSync(path.join(__dirname, '../ssl/www.xinxingbaihuo.cn.pem'))
+};
+
+/**
+ * 定义模型同步顺序（被依赖的模型先同步）
+ */
+const syncOrder = [
+  // 基础模型（不依赖其他模型）
+  'User',
+  'Category',
+  'Product',
+  'AdminUser',
+
+  // 有一级依赖的模型
+  'Address',
+  'Banner',
+  'Cart',
+  'Order',
+
+  // 有二级依赖的模型
+  'OrderItem',
+  'Commission',
+  'ProductView'
+];
+
+/**
+ * 按顺序同步数据库模型
+ */
+async function syncDatabaseModels() {
+  console.log('开始同步数据库模型...');
+
+  for (const modelName of syncOrder) {
+    const model = models[modelName];
+
+    if (!model) {
+      console.warn(`模型 ${modelName} 不存在，跳过同步`);
+      continue;
+    }
+
+    try {
+      await model.sync({ alter: true });
+      console.log(`✓ 模型 ${modelName} 同步成功`);
+    } catch (error) {
+      console.error(`✗ 模型 ${modelName} 同步失败:`, error.message);
+      // 继续同步其他模型
+    }
+  }
+
+  console.log('数据库模型同步完成');
+}
+
+/**
+ * 启动服务器前先同步数据库
+ */
+async function startServer() {
+  try {
+    // 先同步数据库模型
+    await syncDatabaseModels();
+
+    // 再启动服务
+    var port = normalizePort(process.env.PORT || '443');
+    app.set('port', port);
+
+    var server = http.createServer(options, app);
+
+    server.listen(port);
+    server.on('error', onError);
+    server.on('listening', onListening);
+
+    function onListening() {
+      var addr = server.address();
+      var bind = typeof addr === 'string'
+        ? 'pipe ' + addr
+        : 'port ' + addr.port;
+      debug('Listening on ' + bind);
+      console.log('服务器已启动，端口:', addr.port);
+
+      // 服务器启动后初始化管理员账号
+      initAdminUser();
+    }
+  } catch (error) {
+    console.error('启动服务器失败:', error);
+    process.exit(1);
+  }
+}
+
+/**
+ * Get port from environment and store in Express.
+ */
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * 初始化管理员账号
+ */
+async function initAdminUser() {
+  try {
+    console.log('正在检查管理员账号...');
+
+    // 检查是否已有管理员账号
+    const adminCount = await AdminUser.count();
+    console.log(`当前系统中有 ${adminCount} 个管理员账号`);
+
+    if (adminCount === 0) {
+      console.log('没有找到管理员账号，正在创建默认账号...');
+
+      // 创建默认管理员账号
+      const admin = await AdminUser.create({
+        username: 'admin',
+        password: 'admin123', // 密码会自动哈希
+        name: '系统管理员',
+        role: 'admin',
+        email: 'admin@example.com'
+      });
+
+      console.log('默认管理员账号创建成功!');
+      console.log('账号信息: admin/admin123');
+    } else {
+      console.log('系统中已存在管理员账号，无需创建');
+    }
+  } catch (error) {
+    console.error('初始化管理员账号时出错:', error);
+  }
+}
+
+// 启动服务器
+startServer();
