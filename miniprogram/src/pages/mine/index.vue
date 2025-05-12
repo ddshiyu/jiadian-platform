@@ -121,7 +121,7 @@
         @click="navigateToInviteRecords"
       >
         <template #icon>
-          <nut-icon name="friends" size="18"></nut-icon>
+          <nut-icon name="people" size="18"></nut-icon>
         </template>
       </nut-cell>
       <nut-cell 
@@ -131,7 +131,7 @@
         @click="navigateToCommissionRecords"
       >
         <template #icon>
-          <nut-icon name="bill" size="18"></nut-icon>
+          <nut-icon name="star-fill-n" size="18"></nut-icon>
         </template>
       </nut-cell>
       <nut-cell 
