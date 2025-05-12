@@ -21,7 +21,14 @@ const userInfo = reactive({
 	nickname: storedUserInfo?.nickname || '',
 	avatar: storedUserInfo?.avatar || '',
 	phone: storedUserInfo?.phone || '',
-	isLoggedIn: !!storedUserInfo?.id
+	isLoggedIn: !!storedUserInfo?.id,
+	gender: storedUserInfo?.gender || 0,
+	age: storedUserInfo?.age || null,
+	openid: storedUserInfo?.openid || '',
+	inviteCode: storedUserInfo?.inviteCode || '',
+	commission: storedUserInfo?.commission || 0,
+	isVip: !!storedUserInfo?.isVip,
+	vipExpireDate: storedUserInfo?.vipExpireDate || null
 });
 
 // 监听用户信息变化，保存到本地存储
@@ -37,24 +44,40 @@ watch(userInfo, (newValue) => {
 // 获取用户信息
 const getUserInfo = async () => {
 	try {
-		// 判断是否有token
-		const token = uni.getStorageSync('token');
-		if (!token) return;
-		
-		// 调用API获取用户信息
 		const res = await userApi.getUserInfo();
 		
-		if (res && res.data) {
+		if (res && res.code === 0 && res.data) {
 			// 更新用户信息
-			Object.assign(userInfo, res.data);
-			userInfo.isLoggedIn = true;
-			console.log('用户信息获取成功', userInfo);
+			Object.assign(userInfo, {
+				id: res.data.id,
+				nickname: res.data.nickname,
+				avatar: res.data.avatar,
+				gender: res.data.gender,
+				age: res.data.age,
+				phone: res.data.phone,
+				inviteCode: res.data.inviteCode,
+				commission: res.data.commission || 0
+			});
 			
-			// 保存到本地存储（虽然watch会处理，这里为了保险起见也保存一次）
-			uni.setStorageSync('userInfo', JSON.stringify(userInfo));
+			// 获取VIP状态
+			await getVipStatus();
 		}
 	} catch (error) {
 		console.error('获取用户信息失败:', error);
+	}
+};
+
+// 获取VIP状态
+const getVipStatus = async () => {
+	try {
+		const res = await userApi.getVipStatus();
+		if (res && res.code === 0 && res.data) {
+			// 更新VIP信息
+			userInfo.isVip = res.data.isVip;
+			userInfo.vipExpireDate = res.data.vipExpireDate;
+		}
+	} catch (error) {
+		console.error('获取VIP状态失败:', error);
 	}
 };
 

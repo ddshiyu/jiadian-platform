@@ -31,5 +31,6 @@ declare module 'vue' {
     NutSwiperItem: typeof import('nutui-uniapp/components/swiperitem/swiperitem.vue')['default']
     NutSwitch: typeof import('nutui-uniapp/components/switch/switch.vue')['default']
     NutTextarea: typeof import('nutui-uniapp/components/textarea/textarea.vue')['default']
+    VipTag: typeof import('./src/components/VipTag.vue')['default']
   }
 }

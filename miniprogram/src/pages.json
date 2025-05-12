@@ -84,6 +84,12 @@
 				"navigationBarTitleText": "佣金记录",
 				"enablePullDownRefresh": false
 			}
+		},
+		{
+			"path": "pages/mine/vip",
+			"style": {
+				"navigationBarTitleText": "VIP会员"
+			}
 		}
 	],
 	"tabBar": {

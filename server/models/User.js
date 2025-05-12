@@ -14,6 +14,8 @@
  * - inviterId: 邀请人的用户ID
  * - commission: 累计获得的佣金
  * - inviteCode: 用户唯一邀请码
+ * - isVip: 是否是VIP用户
+ * - vipExpireDate: VIP过期时间
  *
  * 关联关系：
  * - 一个用户可以有多个地址(Address)
@@ -87,6 +89,17 @@ const User = sequelize.define("User", {
     unique: true,
     defaultValue: generateInviteCode,
     comment: '用户唯一邀请码'
+  },
+  isVip: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: '是否是VIP用户'
+  },
+  vipExpireDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'VIP过期时间'
   }
 });
 

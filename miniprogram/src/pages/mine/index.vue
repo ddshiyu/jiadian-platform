@@ -34,6 +34,41 @@
       </view>
     </view>
     
+    <!-- VIP会员 -->
+    <view v-if="userInfo.isLoggedIn" class="vip-box">
+      <view class="vip-header">
+        <view class="vip-title-box">
+          <nut-icon name="star-fill-n" size="20" color="#FFD700"></nut-icon>
+          <text class="vip-title">年度会员中心</text>
+        </view>
+        <view v-if="vipInfo.isVip" class="vip-status">
+          <text class="vip-tag">VIP</text>
+          <text class="vip-expire">{{ formatDate(vipInfo.vipExpireDate) }}到期</text>
+        </view>
+        <view v-else class="vip-status">
+          <text class="vip-tag non-vip">普通用户</text>
+        </view>
+      </view>
+      <view class="vip-content">
+        <view class="vip-desc">
+          <text>开通年度VIP会员，全年享受专属优惠</text>
+          <text class="vip-benefits">· 全场9.5折 · 专属客服 · 豪华礼包</text>
+        </view>
+        <nut-button 
+          v-if="!vipInfo.isVip" 
+          type="primary" 
+          size="small" 
+          @click="showVipOptions"
+        >立即开通</nut-button>
+        <nut-button 
+          v-else 
+          type="primary" 
+          size="small" 
+          @click="showVipOptions"
+        >续费会员</nut-button>
+      </view>
+    </view>
+    
     <!-- 邀请好友 -->
     <view v-if="userInfo.isLoggedIn" class="invite-box">
       <view class="invite-header">
@@ -178,6 +213,29 @@
       </nut-cell>
     </nut-cell-group>
   </view>
+  
+  <!-- VIP选项弹窗 -->
+  <nut-popup v-model:visible="showVipPopup" position="bottom" round>
+    <view class="vip-popup">
+      <view class="popup-title">选择会员时长</view>
+      <view class="vip-options">
+        <view 
+          v-for="(option, index) in vipOptions" 
+          :key="index" 
+          class="vip-option-item"
+          :class="{ active: selectedMonths === option.value }"
+          @click="selectVipOption(option)"
+        >
+          <view class="option-label">{{ option.label }}</view>
+          <view class="option-price">¥{{ option.price }}</view>
+        </view>
+      </view>
+      <view class="popup-buttons">
+        <nut-button type="default" @click="showVipPopup = false">取消</nut-button>
+        <nut-button type="primary" @click="payForVip">立即支付</nut-button>
+      </view>
+    </view>
+  </nut-popup>
 </template>
 
 <script setup>
@@ -205,14 +263,31 @@ const inviteData = reactive({
   inviteesCount: 0
 });
 
+// VIP相关数据
+const vipInfo = reactive({
+  isVip: false,
+  vipExpireDate: null,
+  isExpired: true
+});
+
 // 佣金比例（可以从配置中获取，这里暂时固定为5%）
 const commissionRate = ref(5);
+
+// VIP选项弹窗
+const showVipPopup = ref(false);
+const selectedMonths = ref(1);
+const vipOptions = [
+  { label: '1个月', value: 1, price: 30 },
+  { label: '3个月', value: 3, price: 80 },
+  { label: '12个月', value: 12, price: 298 }
+];
 
 // 页面加载
 onMounted(() => {
   loadOrderCount();
   if (userInfo.isLoggedIn) {
     loadInviteData();
+    loadVipStatus();
   }
 });
 
@@ -221,6 +296,7 @@ onShow(() => {
   loadOrderCount();
   if (userInfo.isLoggedIn) {
     loadInviteData();
+    loadVipStatus();
   }
 });
 
@@ -453,6 +529,100 @@ onShareAppMessage(() => ({
   imageUrl: '/static/image/avatar.jpeg'
 }))
 
+// 加载VIP状态
+const loadVipStatus = async () => {
+  try {
+    const res = await userApi.getVipStatus();
+    if (res && res.code === 0 && res.data) {
+      Object.assign(vipInfo, res.data);
+    }
+  } catch (error) {
+    console.error('获取VIP状态失败:', error);
+  }
+};
+
+// 显示VIP选项弹窗
+const showVipOptions = () => {
+  // 跳转到VIP会员页面
+  uni.navigateTo({
+    url: '/pages/mine/vip'
+  });
+};
+
+// 选择VIP时长
+const selectVipOption = (option) => {
+  selectedMonths.value = option.value;
+};
+
+// 支付开通VIP
+const payForVip = async () => {
+  try {
+    uni.showLoading({
+      title: '支付处理中...',
+      mask: true
+    });
+    
+    // 获取当前选择的VIP选项
+    const selectedOption = vipOptions.find(option => option.value === selectedMonths.value);
+    if (!selectedOption) {
+      uni.hideLoading();
+      uni.showToast({
+        title: '请选择会员时长',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 调用加入VIP接口，获取支付参数
+    const res = await userApi.joinVip(selectedOption.price);
+    
+    uni.hideLoading();
+    
+    if (res && res.code === 0 && res.data && res.data.payParams) {
+      // 调用微信支付
+      uni.requestPayment({
+        ...res.data.payParams,
+        success: () => {
+          showVipPopup.value = false;
+          // 支付成功后刷新VIP状态
+          loadVipStatus();
+          uni.showToast({
+            title: 'VIP开通成功',
+            icon: 'success'
+          });
+        },
+        fail: (err) => {
+          console.error('支付失败:', err);
+          uni.showToast({
+            title: '支付已取消',
+            icon: 'none'
+          });
+        }
+      });
+    } else {
+      showVipPopup.value = false;
+      uni.showToast({
+        title: res?.message || 'VIP开通失败',
+        icon: 'none'
+      });
+    }
+  } catch (error) {
+    uni.hideLoading();
+    console.error('VIP开通失败:', error);
+    uni.showToast({
+      title: 'VIP开通失败',
+      icon: 'none'
+    });
+  }
+};
+
+// 格式化日期
+const formatDate = (date) => {
+  if (!date) return '未知';
+  const d = new Date(date);
+  return d.toLocaleDateString();
+};
+
 </script>
 
 <style lang="scss">
@@ -679,5 +849,122 @@ onShareAppMessage(() => ({
   text-align: left;
   border: none;
   outline: none;
+}
+
+.vip-box {
+  margin: 20rpx;
+  border-radius: 12rpx;
+  background-color: #fff;
+  overflow: hidden;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+}
+
+.vip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 30rpx;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.vip-title-box {
+  display: flex;
+  align-items: center;
+}
+
+.vip-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  margin-left: 10rpx;
+}
+
+.vip-status {
+  display: flex;
+  align-items: center;
+}
+
+.vip-tag {
+  font-size: 24rpx;
+  background: linear-gradient(to right, #FFD700, #FFA500);
+  color: #fff;
+  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+  margin-right: 10rpx;
+}
+
+.non-vip {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.vip-expire {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.vip-content {
+  padding: 24rpx 30rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vip-desc {
+  font-size: 24rpx;
+  color: #666;
+  margin-bottom: 20rpx;
+}
+
+.vip-benefits {
+  font-size: 24rpx;
+  color: #999;
+  margin-left: 10rpx;
+}
+
+.vip-popup {
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.popup-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  padding: 20rpx;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.vip-options {
+  padding: 20rpx;
+}
+
+.vip-option-item {
+  padding: 10rpx;
+  border-bottom: 1rpx solid #f5f5f5;
+  cursor: pointer;
+}
+
+.active {
+  background-color: #f5f5f5;
+}
+
+.option-label {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.option-price {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 5rpx;
+}
+
+.popup-buttons {
+  padding: 20rpx;
+  display: flex;
+  justify-content: space-between;
 }
 </style> 

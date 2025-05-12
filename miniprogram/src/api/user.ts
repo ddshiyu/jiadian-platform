@@ -6,10 +6,14 @@ interface LoginParams {
   [key: string]: any;
 }
 
+interface VipPaymentParams {
+  amount: number;
+}
+
 // 用户相关接口
 export const userApi = {
   // 登录
-  login: (data: LoginParams = {}) => {
+  login: (data = {}) => {
     return http.post('/user/login', data)
   },
   // 获取用户信息
@@ -35,5 +39,13 @@ export const userApi = {
   // 获取用户手机号
   getPhoneNumber: (code: string) => {
     return http.post('/user/phone-number', { code })
+  },
+  // 加入VIP
+  joinVip: (amount: number) => {
+    return http.post('/user/join-vip', { amount })
+  },
+  // 获取VIP状态
+  getVipStatus: () => {
+    return http.get('/user/vip-status')
   }
 }
