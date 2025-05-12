@@ -201,6 +201,76 @@ router.get('/user-info', auth, async (req, res) => {
 });
 
 /**
+ * @api {post} /user/phone-number 获取用户手机号
+ * @apiName GetPhoneNumber
+ * @apiGroup User
+ * @apiParam {String} code 手机号获取凭证
+ */
+router.post('/phone-number', auth, async (req, res) => {
+  try {
+    const { code } = req.body;
+    const userId = req.user.id;
+
+    if (!code) {
+      return res.status(400).json({ message: '缺少手机号获取凭证' });
+    }
+
+    // 获取小程序全局唯一后台接口调用凭据（access_token）
+    const tokenResponse = await axios.get(
+      'https://api.weixin.qq.com/cgi-bin/token',
+      {
+        params: {
+          grant_type: 'client_credential',
+          appid: process.env.WECHAT_APPID,
+          secret: process.env.WECHAT_SECRET
+        }
+      }
+    );
+
+    if (!tokenResponse.data.access_token) {
+      console.error('获取access_token失败:', tokenResponse.data);
+      return res.status(500).json({ message: '获取微信凭证失败' });
+    }
+
+    const access_token = tokenResponse.data.access_token;
+
+    // 调用微信接口获取手机号
+    const phoneResponse = await axios.post(
+      `https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=${access_token}`,
+      { code }
+    );
+
+    if (phoneResponse.data.errcode !== 0) {
+      console.error('获取手机号失败:', phoneResponse.data);
+      return res.status(400).json({
+        message: '获取手机号失败',
+        error: phoneResponse.data.errmsg
+      });
+    }
+
+    const phoneInfo = phoneResponse.data.phone_info;
+    const phoneNumber = phoneInfo.purePhoneNumber;
+
+    // 更新用户手机号
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: '用户不存在' });
+    }
+
+    await user.update({ phone: phoneNumber });
+
+    res.status(200).json({
+      message: '手机号获取成功',
+      phoneNumber
+    });
+
+  } catch (error) {
+    console.error('获取手机号错误:', error);
+    res.status(500).json({ message: '服务器错误' });
+  }
+});
+
+/**
  * @api {post} /user/redeem-invite-code 核销邀请码
  * @apiName RedeemInviteCode
  * @apiGroup User

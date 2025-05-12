@@ -31,5 +31,9 @@ export const userApi = {
   // 核销邀请码
   redeemInviteCode: (inviteCode: string) => {
     return http.post('/user/redeem-invite-code', { inviteCode })
+  },
+  // 获取用户手机号
+  getPhoneNumber: (code: string) => {
+    return http.post('/user/phone-number', { code })
   }
 }

@@ -2,7 +2,7 @@
   <view class="container">
     <!-- 用户信息 -->
     <view class="user-info-box">
-      <view class="user-info" @click="navigateToSetting">
+      <view class="user-info">
         <nut-avatar 
           size="large" 
           shape="round"
@@ -20,14 +20,17 @@
           />
         </nut-avatar>
         <view class="user-details">
-          <view class="nickname">{{ userInfo.nickname || '点击登录' }}</view>
+          <view v-if="userInfo.isLoggedIn" class="nickname">{{ userInfo.nickname || '微信用户' }}</view>
+          <button 
+            v-else 
+            class="login-btn" 
+            open-type="getPhoneNumber" 
+            @getphonenumber="getPhoneNumber"
+          >点击登录</button>
           <view v-if="userInfo.isLoggedIn && inviteData.commission > 0" class="commission">
             累计佣金: ¥{{ inviteData.commission.toFixed(2) }}
           </view>
         </view>
-      </view>
-      <view class="setting-btn" @click="navigateToSetting">
-        <nut-icon name="setting" size="20"></nut-icon>
       </view>
     </view>
     
@@ -111,6 +114,28 @@
       >
         <template #icon>
           <nut-icon name="location" size="18"></nut-icon>
+        </template>
+      </nut-cell>
+      <nut-cell 
+        v-if="userInfo.isLoggedIn && !userInfo.phone"
+        title="绑定手机号" 
+        is-link
+      >
+        <template #icon>
+          <nut-icon name="tel" size="18"></nut-icon>
+        </template>
+        <template #link>
+          <button class="phone-btn" open-type="getPhoneNumber" @getphonenumber="getPhoneNumber">
+            <text class="phone-btn-text">一键授权</text>
+          </button>
+        </template>
+      </nut-cell>
+      <nut-cell 
+        v-if="userInfo.isLoggedIn && userInfo.phone"
+        :title="'手机号: ' + formatPhone(userInfo.phone)" 
+      >
+        <template #icon>
+          <nut-icon name="tel" size="18"></nut-icon>
         </template>
       </nut-cell>
       <nut-cell 
@@ -289,21 +314,6 @@ const navigateToAddressList = () => {
   });
 };
 
-// 跳转到设置页面
-const navigateToSetting = () => {
-  if (!userInfo.isLoggedIn) {
-    // 未登录，跳转到登录页
-    uni.navigateTo({
-      url: '/pages/user/login'
-    });
-    return;
-  }
-  
-  uni.navigateTo({
-    url: '/pages/user/setting'
-  });
-};
-
 // 联系客服
 const contactCustomerService = () => {
   uni.makePhoneCall({
@@ -315,6 +325,105 @@ const contactCustomerService = () => {
       });
     }
   });
+};
+
+// 获取用户手机号
+const getPhoneNumber = async (e) => {
+  if (e.detail.errMsg !== 'getPhoneNumber:ok') {
+    uni.showToast({
+      title: '获取手机号失败',
+      icon: 'none'
+    });
+    return;
+  }
+
+  try {
+    // 显示加载中
+    uni.showLoading({
+      title: '登录中...',
+      mask: true
+    });
+    
+    // 先进行登录
+    const loginRes = await userApi.login({
+      code: await getWxCode()
+    });
+    
+    if (!loginRes || loginRes.code !== 0) {
+      uni.hideLoading();
+      uni.showToast({
+        title: '登录失败',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 登录成功，保存token和用户信息
+    if (loginRes.data && loginRes.data.token) {
+      uni.setStorageSync('token', loginRes.data.token);
+      
+      // 更新用户信息
+      Object.assign(userInfo, {
+        isLoggedIn: true,
+        ...loginRes.data.userInfo
+      });
+    }
+    
+    // 获取手机号
+    const phoneRes = await userApi.getPhoneNumber(e.detail.code);
+    uni.hideLoading();
+    
+    if (phoneRes && phoneRes.code === 0 && phoneRes.data) {
+      // 更新用户手机号
+      userInfo.phone = phoneRes.data.phoneNumber;
+      
+      uni.showToast({
+        title: '登录成功',
+        icon: 'success'
+      });
+      
+      // 重新加载数据
+      loadOrderCount();
+      loadInviteData();
+    } else {
+      uni.showToast({
+        title: phoneRes?.message || '获取手机号失败',
+        icon: 'none'
+      });
+    }
+  } catch (error) {
+    uni.hideLoading();
+    console.error('登录失败:', error);
+    uni.showToast({
+      title: '登录失败',
+      icon: 'none'
+    });
+  }
+};
+
+// 获取微信登录code
+const getWxCode = () => {
+  return new Promise((resolve, reject) => {
+    uni.login({
+      provider: 'weixin',
+      success: (res) => {
+        if (res.code) {
+          resolve(res.code);
+        } else {
+          reject(new Error('获取code失败'));
+        }
+      },
+      fail: (err) => {
+        reject(err);
+      }
+    });
+  });
+};
+
+// 格式化手机号(中间4位显示*)
+const formatPhone = (phone) => {
+  if (!phone || phone.length !== 11) return phone;
+  return phone.substring(0, 3) + '****' + phone.substring(7);
 };
 
 // 关于我们
@@ -543,5 +652,32 @@ onShareAppMessage(() => ({
 .invite-data-label {
   font-size: 24rpx;
   color: #999;
+}
+
+.phone-btn {
+  background: linear-gradient(to right, #E31D1A, #FF6E5D);
+  color: #fff;
+  border-radius: 30rpx;
+  padding: 6rpx 20rpx;
+  font-size: 24rpx;
+  border: none;
+  line-height: 1.5;
+}
+
+.phone-btn-text {
+  color: #fff;
+}
+
+.login-btn {
+  background: none;
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: bold;
+  padding: 0;
+  margin: 0;
+  line-height: 1.2;
+  text-align: left;
+  border: none;
+  outline: none;
 }
 </style> 
