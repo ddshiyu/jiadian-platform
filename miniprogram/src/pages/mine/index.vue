@@ -341,7 +341,7 @@ const navigateToCommissionRecords = () => {
 
 onShareAppMessage(() => ({
   title: `我邀请你加入家电商城，共享财富`,
-  path: `/pages/home/index?code=${inviteData.inviteCode}`,
+  path: `/pages/index/index?inviteCode=${inviteData.inviteCode}`,
   imageUrl: '/static/image/avatar.jpeg'
 }))
 

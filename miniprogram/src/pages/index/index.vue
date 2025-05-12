@@ -66,13 +66,34 @@
         </view>
       </view>
     </view>
+
+    <!-- 邀请码核销弹窗 -->
+    <nut-popup v-model:visible="showInviteCodePopup" position="bottom" round>
+      <view class="invite-code-popup">
+        <view class="popup-title">输入邀请码</view>
+        <view class="popup-content">
+          <nut-input 
+            v-model="inputInviteCode" 
+            placeholder="请输入邀请码" 
+            type="text"
+            class="invite-code-input"
+          />
+          <view class="popup-tip">输入好友的邀请码，建立邀请关系</view>
+        </view>
+        <view class="popup-buttons">
+          <nut-button type="default" @click="showInviteCodePopup = false">取消</nut-button>
+          <nut-button type="primary" @click="submitInviteCode">确认</nut-button>
+        </view>
+      </view>
+    </nut-popup>
   </view>
 </template>
 
 <script setup lang="js">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { homeApi } from '../../api/index';
 import { productApi } from '../../api/product';
+import { userApi } from '../../api/user';
 import { onLoad } from '@dcloudio/uni-app';
 
 // 轮播图数据
@@ -84,6 +105,10 @@ const categoryList = ref([]);
 // 推荐商品数据
 const recommendProductList = ref([]);
 
+// 邀请码相关状态
+const showInviteCodePopup = ref(false);
+const inputInviteCode = ref('');
+
 // 加载状态
 const loading = ref({
   banners: false,
@@ -94,11 +119,17 @@ const loading = ref({
 });
 
 // 页面加载
-onLoad(() => {
-  console.log('首页加载');
+onLoad((options) => {
+  console.log('首页加载', options);
   fetchBanners();
   fetchCategories();
   fetchRecommendProducts();
+  
+  // 检查是否有邀请码参数
+  if (options && options.inviteCode) {
+    inputInviteCode.value = options.inviteCode;
+    showInviteCodePopup.value = true;
+  }
 });
 
 // 获取轮播图数据
@@ -240,6 +271,39 @@ const navigateToSearch = () => {
     url: '/pages/search/index'
   });
 };
+
+// 提交邀请码
+const submitInviteCode = async () => {
+  if (!inputInviteCode.value) {
+    uni.showToast({
+      title: '请输入邀请码',
+      icon: 'none'
+    });
+    return;
+  }
+  
+  try {
+    const res = await userApi.redeemInviteCode(inputInviteCode.value);
+    if (res && res.code === 0) {
+      uni.showToast({
+        title: '邀请码核销成功',
+        icon: 'success'
+      });
+      showInviteCodePopup.value = false;
+    } else {
+      uni.showToast({
+        title: res?.message || '核销失败',
+        icon: 'none'
+      });
+    }
+  } catch (error) {
+    console.error('核销邀请码失败:', error);
+    uni.showToast({
+      title: '核销邀请码失败',
+      icon: 'none'
+    });
+  }
+};
 </script>
 
 <style lang="scss">
@@ -367,5 +431,40 @@ const navigateToSearch = () => {
   color: #999;
   text-decoration: line-through;
   margin-left: 10rpx;
+}
+
+// 邀请码弹窗样式
+.invite-code-popup {
+  padding: 30rpx;
+}
+
+.popup-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 30rpx;
+}
+
+.popup-content {
+  margin-bottom: 30rpx;
+}
+
+.invite-code-input {
+  margin-bottom: 20rpx;
+}
+
+.popup-tip {
+  font-size: 24rpx;
+  color: #999;
+  text-align: center;
+}
+
+.popup-buttons {
+  display: flex;
+  gap: 20rpx;
+}
+
+.popup-buttons .nut-button {
+  flex: 1;
 }
 </style>

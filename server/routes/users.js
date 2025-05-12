@@ -200,4 +200,71 @@ router.get('/user-info', auth, async (req, res) => {
   }
 });
 
+/**
+ * @api {post} /user/redeem-invite-code 核销邀请码
+ * @apiName RedeemInviteCode
+ * @apiGroup User
+ * @apiParam {String} inviteCode 被核销的邀请码
+ */
+router.post('/redeem-invite-code', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { inviteCode } = req.body;
+
+    if (!inviteCode) {
+      return res.status(400).json({ message: '邀请码不能为空' });
+    }
+
+    // 获取当前用户信息
+    const currentUser = await User.findByPk(userId);
+
+    if (!currentUser) {
+      return res.status(404).json({ message: '用户不存在' });
+    }
+
+    // 如果用户已经有邀请人，不能再次核销邀请码
+    if (currentUser.inviterId) {
+      return res.status(400).json({ message: '您已经绑定了邀请人，不能再次核销邀请码' });
+    }
+
+    // 查找邀请码对应的用户
+    const inviter = await User.findOne({ where: { inviteCode } });
+
+    if (!inviter) {
+      return res.status(404).json({ message: '无效的邀请码' });
+    }
+
+    // 不能使用自己的邀请码
+    if (inviter.id === userId) {
+      return res.status(400).json({ message: '不能使用自己的邀请码' });
+    }
+
+    // 更新当前用户的邀请人ID
+    await currentUser.update({ inviterId: inviter.id });
+
+    // 获取更新后的用户信息
+    const updatedUser = await User.findByPk(userId, {
+      include: [
+        {
+          model: User,
+          as: 'inviter',
+          attributes: ['id', 'nickname', 'avatar']
+        }
+      ]
+    });
+
+    res.status(200).json({
+      message: '邀请码核销成功',
+      inviter: {
+        id: inviter.id,
+        nickname: inviter.nickname,
+        avatar: inviter.avatar
+      }
+    });
+  } catch (error) {
+    console.error('核销邀请码错误:', error);
+    res.status(500).json({ message: '服务器错误' });
+  }
+});
+
 module.exports = router;
