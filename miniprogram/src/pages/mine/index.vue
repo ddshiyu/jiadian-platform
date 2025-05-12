@@ -40,7 +40,6 @@
       <view class="invite-code-box">
         <text class="invite-code">{{ inviteData.inviteCode || '加载中...' }}</text>
         <view class="invite-copy" @click="copyInviteCode">
-          <nut-icon name="copy" size="16"></nut-icon>
           <text class="copy-text">复制</text>
         </view>
       </view>
