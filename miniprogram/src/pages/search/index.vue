@@ -308,10 +308,10 @@ const navigateToProduct = (id) => {
   font-size: 28rpx;
   color: #333;
   font-weight: bold;
-  margin-bottom: 20rpx;
 }
 
 .hot-tags {
+  margin-top: 20rpx;
   display: flex;
   flex-wrap: wrap;
 }
