@@ -1,9 +1,15 @@
 import { http } from '@/utils/request'
 
+interface LoginParams {
+  code?: string;
+  inviteCode?: string;
+  [key: string]: any;
+}
+
 // 用户相关接口
 export const userApi = {
   // 登录
-  login: (data = {}) => {
+  login: (data: LoginParams = {}) => {
     return http.post('/user/login', data)
   },
   // 获取用户信息
@@ -23,7 +29,7 @@ export const userApi = {
     return http.get('/user/invitees')
   },
   // 核销邀请码
-  redeemInviteCode: (inviteCode) => {
+  redeemInviteCode: (inviteCode: string) => {
     return http.post('/user/redeem-invite-code', { inviteCode })
   }
 }

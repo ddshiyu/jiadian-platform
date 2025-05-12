@@ -8,15 +8,18 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'plugin:vue/vue3-recommended',
+    'plugin:@typescript-eslint/recommended',
   ],
   parser: 'vue-eslint-parser',
   parserOptions: {
     ecmaVersion: 2020,
     sourceType: 'module',
+    parser: '@typescript-eslint/parser',
     ecmaFeatures: {
       jsx: true,
     },
   },
+  plugins: ['@typescript-eslint'],
   rules: {
     'vue/multi-word-component-names': 'off',
     'vue/no-v-html': 'off',
@@ -37,7 +40,8 @@ module.exports = {
     'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     'no-unused-vars': 'warn',
-    'no-undef': 'warn'
+    'no-undef': 'warn',
+    '@typescript-eslint/no-explicit-any': 'off'
   },
   globals: {
     uni: true,

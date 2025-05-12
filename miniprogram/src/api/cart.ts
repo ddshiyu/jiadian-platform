@@ -1,5 +1,23 @@
 import { http } from '@/utils/request'
 
+interface CartItem {
+  productId: string;
+  quantity: number;
+  [key: string]: any;
+}
+
+interface CartUpdateData {
+  quantity?: number;
+  selected?: boolean;
+  [key: string]: any;
+}
+
+interface CheckoutData {
+  addressId: string;
+  cartIds: string[];
+  [key: string]: any;
+}
+
 // 购物车相关接口
 export const cartApi = {
   // 获取购物车列表
@@ -8,17 +26,17 @@ export const cartApi = {
   },
   
   // 添加商品到购物车
-  add: (data) => {
+  add: (data: CartItem) => {
     return http.post('/carts', data)
   },
   
   // 更新购物车商品
-  update: (id, data) => {
+  update: (id: string, data: CartUpdateData) => {
     return http.put(`/carts/${id}`, data)
   },
   
   // 删除购物车商品
-  delete: (id) => {
+  delete: (id: string) => {
     return http.delete(`/carts/${id}`)
   },
   
@@ -28,7 +46,7 @@ export const cartApi = {
   },
   
   // 全选/取消全选
-  selectAll: (selected) => {
+  selectAll: (selected: boolean) => {
     return http.put('/carts/selectAll', { selected })
   },
   
@@ -38,12 +56,12 @@ export const cartApi = {
   },
   
   // 从购物车结算创建订单
-  checkout: (data) => {
+  checkout: (data: CheckoutData) => {
     return http.post('/carts/checkout', data)
   },
   
   // 支付购物车订单
-  pay: (data) => {
+  pay: (data: { orderId: string }) => {
     return http.post('/carts/pay', data)
   }
 } 
