@@ -70,6 +70,20 @@
 				"navigationBarTitleText": "订单确认",
 				"enablePullDownRefresh": false
 			}
+		},
+		{
+			"path": "pages/user/invite-records",
+			"style": {
+				"navigationBarTitleText": "邀请记录",
+				"enablePullDownRefresh": false
+			}
+		},
+		{
+			"path": "pages/user/commission-records",
+			"style": {
+				"navigationBarTitleText": "佣金记录",
+				"enablePullDownRefresh": false
+			}
 		}
 	],
 	"tabBar": {

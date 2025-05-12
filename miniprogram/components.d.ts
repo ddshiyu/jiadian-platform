@@ -23,6 +23,7 @@ declare module 'vue' {
     NutIcon: typeof import('nutui-uniapp/components/icon/icon.vue')['default']
     NutInput: typeof import('nutui-uniapp/components/input/input.vue')['default']
     NutInputNumber: typeof import('nutui-uniapp/components/inputnumber/inputnumber.vue')['default']
+    NutNavbar: typeof import('nutui-uniapp/components/navbar/navbar.vue')['default']
     NutPopup: typeof import('nutui-uniapp/components/popup/popup.vue')['default']
     NutPrice: typeof import('nutui-uniapp/components/price/price.vue')['default']
     NutSwipe: typeof import('nutui-uniapp/components/swipe/swipe.vue')['default']
