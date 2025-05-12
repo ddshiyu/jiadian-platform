@@ -35,7 +35,7 @@
     <view v-if="userInfo.isLoggedIn" class="invite-box">
       <view class="invite-header">
         <text class="invite-title">我的邀请码</text>
-        <nut-button type="primary" size="small" @click="shareInviteCode">分享邀请</nut-button>
+        <nut-button type="primary" size="small" open-type="share">分享邀请</nut-button>
       </view>
       <view class="invite-code-box">
         <text class="invite-code">{{ inviteData.inviteCode || '加载中...' }}</text>
@@ -159,6 +159,7 @@
 <script setup>
 import { ref, reactive, onMounted, inject } from 'vue';
 import { onShow } from '@dcloudio/uni-app'
+import { onShareAppMessage } from '@dcloudio/uni-app'
 import { userApi } from '../../api/user';
 import { orderApi } from '../../api/order';
 
@@ -240,28 +241,6 @@ const copyInviteCode = () => {
         title: '邀请码已复制',
         icon: 'success'
       });
-    }
-  });
-};
-
-// 分享邀请码
-const shareInviteCode = () => {
-  if (!inviteData.inviteCode) {
-    uni.showToast({
-      title: '邀请码获取失败',
-      icon: 'none'
-    });
-    return;
-  }
-  
-  uni.showShareMenu({
-    withShareTicket: true,
-    menus: ['shareAppMessage', 'shareTimeline'],
-    success: () => {
-      console.log('显示分享菜单成功');
-    },
-    fail: (err) => {
-      console.error('显示分享菜单失败:', err);
     }
   });
 };
@@ -359,6 +338,13 @@ const navigateToCommissionRecords = () => {
     url: '/pages/user/commission-records'
   });
 };
+
+onShareAppMessage(() => ({
+  title: `我邀请你加入家电商城，共享财富`,
+  path: `/pages/home/index?code=${inviteData.inviteCode}`,
+  imageUrl: '/static/image/avatar.jpeg'
+}))
+
 </script>
 
 <style lang="scss">
