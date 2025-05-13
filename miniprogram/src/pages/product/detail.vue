@@ -73,19 +73,15 @@
         </view>
       </view>
       <view class="buy-buttons">
-        <view class="buy-btn-item">
-          <nut-button type="warning" class="add-cart-btn" @click="addToCart">加入购物车</nut-button>
-        </view>
-        <view class="buy-btn-item">
-          <nut-button type="danger" class="buy-now-btn" @click="buyNow">立即购买</nut-button>
-        </view>
+        <view class="add-cart-btn" @click="addToCart">加入购物车</view>
+        <view class="buy-now-btn" @click="buyNow">立即购买</view>
       </view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive } from 'vue';
 import { productApi } from '../../api/product';
 import { cartApi } from '../../api/cart';
 import { onLoad } from '@dcloudio/uni-app';
@@ -420,21 +416,22 @@ const navigateToCart = () => {
 }
 
 .add-cart-btn, .buy-now-btn {
-  width: 100%;
+  flex: 1;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28rpx;
-  border-radius: 0;
-  display: inline-block;
+  color: #fff;
+  text-align: center;
 }
 
-.add-cart-btn :deep(.nut-button__text), .buy-now-btn :deep(.nut-button__text) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
+.add-cart-btn {
+  background-color: #ff9500;
+}
+
+.buy-now-btn {
+  background-color: #E31D1A;
 }
 
 .detail-images {
