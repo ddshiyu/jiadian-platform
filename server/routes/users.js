@@ -77,7 +77,8 @@ router.post('/login', async (req, res) => {
         phone: user.phone,
         openid: user.openid,
         inviteCode: user.inviteCode,
-        commission: user.commission
+        commission: user.commission,
+        userType: user.userType
       }
     });
 
@@ -194,6 +195,7 @@ router.get('/user-info', auth, async (req, res) => {
       phone: user.phone,
       inviteCode: user.inviteCode,
       commission: user.commission,
+      userType: user.userType,
       inviter: user.inviter,
       createdAt: user.createdAt,
       statistics: {

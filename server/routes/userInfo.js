@@ -18,6 +18,7 @@ router.get('/info', async (req, res, next) => {
         'avatar',
         'age',
         'openid',
+        'userType',
         'createdAt',
         'updatedAt'
       ]
