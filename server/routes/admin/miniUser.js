@@ -55,7 +55,7 @@ router.get('/page', async (req, res) => {
       where,
       attributes: [
         'id', 'nickname', 'gender', 'avatar',
-        'phone', 'age', 'openid', 'warningNum',
+        'phone', 'age', 'openid',
         'createdAt', 'updatedAt', 'userType'
       ],
       order: [['createdAt', 'DESC']],
@@ -98,7 +98,7 @@ router.get('/:id', async (req, res) => {
     const user = await User.findByPk(userId, {
       attributes: [
         'id', 'nickname', 'gender', 'avatar',
-        'phone', 'age', 'openid', 'warningNum',
+        'phone', 'age', 'openid',
         'createdAt', 'updatedAt', 'userType'
       ],
       include: [
@@ -124,48 +124,6 @@ router.get('/:id', async (req, res) => {
     console.error('获取用户详情失败:', error);
     res.status(500).json({
       message: '获取用户详情失败',
-      error: error.message
-    });
-  }
-});
-
-/**
- * @api {put} /admin/mini-users/:id/warning-num 修改用户剩余提醒次数
- * @apiName UpdateWarningNum
- * @apiGroup AdminMiniUser
- * @apiParam {Number} id 用户ID
- * @apiParam {Number} warningNum 提醒次数
- */
-router.put('/:id/warning-num', async (req, res) => {
-  try {
-    const userId = req.params.id;
-    const { warningNum } = req.body;
-
-    if (!Number.isInteger(parseInt(warningNum)) || parseInt(warningNum) < 0) {
-      return res.status(400).json({
-        message: '提醒次数必须是大于等于0的整数'
-      });
-    }
-
-    // 查询用户是否存在
-    const user = await User.findByPk(userId);
-
-    if (!user) {
-      return res.status(404).json({
-        message: '用户不存在'
-      });
-    }
-
-    // 更新用户提醒次数
-    await user.update({ warningNum: parseInt(warningNum) });
-
-    res.status(200).json({
-      message: '用户提醒次数更新成功'
-    });
-  } catch (error) {
-    console.error('更新用户提醒次数失败:', error);
-    res.status(500).json({
-      message: '更新用户提醒次数失败',
       error: error.message
     });
   }

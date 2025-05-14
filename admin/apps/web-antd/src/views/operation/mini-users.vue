@@ -13,7 +13,6 @@ import {
   Form,
   FormItem,
   Input,
-  InputNumber,
   List,
   ListItem,
   message,
@@ -30,7 +29,6 @@ import {
   getMiniAppUserDetailApi,
   getMiniAppUserListApi,
   updateMiniAppUserTypeApi,
-  updateMiniAppUserWarningNumApi,
 } from '#/api/core/operation';
 
 // 定义接口
@@ -61,7 +59,6 @@ interface User {
   phone: string;
   age: number;
   openid: string;
-  warningNum: number;
   createdAt: string;
   updatedAt: string;
   userType?: 'consumer' | 'supplier';
@@ -118,12 +115,6 @@ const columns = [
     },
   },
   {
-    title: '提醒次数',
-    dataIndex: 'warningNum',
-    key: 'warningNum',
-    width: 100,
-  },
-  {
     title: '注册时间',
     dataIndex: 'createdAt',
     key: 'createdAt',
@@ -151,27 +142,10 @@ const pagination = reactive({
   showQuickJumper: true,
 });
 
-// 编辑模式标识
-const editMode = ref(false);
-
-// 提醒次数相关
-const warningNumModalVisible = ref(false);
-const warningNumForm = reactive({
-  warningNum: 0,
-  userId: 0,
-});
-const warningNumRules = {
-  warningNum: [
-    { required: true, message: '请输入提醒次数', trigger: 'blur' },
-    { type: 'number', min: 0, message: '提醒次数不能小于0', trigger: 'blur' },
-  ],
-};
-const warningNumFormRef = ref();
-const submitLoading = ref(false);
-const currentUser = ref<null | User>(null);
-
 // 详情相关
 const detailModalVisible = ref(false);
+const currentUser = ref<null | User>(null);
+const submitLoading = ref(false);
 
 // 方法定义
 const formatDate = (date: string) => {
@@ -229,43 +203,6 @@ const handleReset = () => {
   searchForm.gender = null;
   pagination.current = 1;
   fetchUserList();
-};
-
-const handleEditWarningNum = (record: User) => {
-  currentUser.value = record;
-  warningNumForm.warningNum = record.warningNum;
-  warningNumForm.userId = record.id;
-  warningNumModalVisible.value = true;
-  editMode.value = true;
-};
-
-const handleWarningNumCancel = () => {
-  warningNumModalVisible.value = false;
-  warningNumForm.warningNum = 0;
-  warningNumForm.userId = 0;
-  editMode.value = false;
-};
-
-const handleWarningNumSubmit = async () => {
-  try {
-    await warningNumFormRef.value.validate();
-    submitLoading.value = true;
-
-    await updateMiniAppUserWarningNumApi(
-      warningNumForm.userId,
-      warningNumForm.warningNum,
-    );
-
-    message.success('更新提醒次数成功');
-    warningNumModalVisible.value = false;
-    editMode.value = false;
-    fetchUserList();
-  } catch (error) {
-    console.error('更新提醒次数失败:', error);
-    message.error('更新提醒次数失败');
-  } finally {
-    submitLoading.value = false;
-  }
 };
 
 const handleViewDetail = async (record: User) => {
@@ -385,52 +322,12 @@ onMounted(() => {
             <Space>
               <a @click="handleViewDetail(record)">查看</a>
               <Divider type="vertical" />
-              <a @click="handleEditWarningNum(record)">编辑提醒次数</a>
-              <Divider type="vertical" />
               <a @click="handleChangeUserType(record)">变更身份</a>
             </Space>
           </template>
         </template>
       </Table>
     </Card>
-
-    <!-- 修改提醒次数弹窗 -->
-    <Modal
-      v-model:visible="warningNumModalVisible"
-      title="修改提醒次数"
-      :mask-closable="false"
-      @cancel="handleWarningNumCancel"
-    >
-      <Form
-        ref="warningNumFormRef"
-        :model="warningNumForm"
-        :rules="warningNumRules"
-        :label-col="{ span: 6 }"
-        :wrapper-col="{ span: 16 }"
-      >
-        <FormItem label="用户昵称">
-          <span>{{ currentUser?.nickname }}</span>
-        </FormItem>
-        <FormItem label="提醒次数" name="warningNum">
-          <InputNumber
-            v-model:value="warningNumForm.warningNum"
-            placeholder="请输入提醒次数"
-            :min="0"
-            style="width: 100%"
-          />
-        </FormItem>
-      </Form>
-      <template #footer>
-        <Button @click="handleWarningNumCancel">取消</Button>
-        <Button
-          type="primary"
-          :loading="submitLoading"
-          @click="handleWarningNumSubmit"
-        >
-          确定
-        </Button>
-      </template>
-    </Modal>
 
     <!-- 用户详情弹窗 -->
     <Modal
@@ -462,9 +359,6 @@ onMounted(() => {
           </DescriptionsItem>
           <DescriptionsItem label="用户类型">
             {{ currentUser.userType === 'supplier' ? '供应商' : '消费者' }}
-          </DescriptionsItem>
-          <DescriptionsItem label="提醒次数">
-            {{ currentUser.warningNum }}
           </DescriptionsItem>
           <DescriptionsItem label="注册时间">
             {{ formatDate(currentUser.createdAt) }}

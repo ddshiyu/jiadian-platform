@@ -10,7 +10,6 @@
  * - avatar: 用户头像URL
  * - age: 用户年龄
  * - phone: 用户电话号码
- * - warningNum: 库存预警数量
  * - inviterId: 邀请人的用户ID
  * - commission: 累计获得的佣金
  * - inviteCode: 用户唯一邀请码
@@ -67,11 +66,6 @@ const User = sequelize.define("User", {
   phone: {
     type: DataTypes.STRING,
     allowNull: true,
-  },
-  warningNum: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 20
   },
   inviterId: {
     type: DataTypes.INTEGER,

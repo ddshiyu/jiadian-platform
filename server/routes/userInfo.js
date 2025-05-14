@@ -18,7 +18,6 @@ router.get('/info', async (req, res, next) => {
         'avatar',
         'age',
         'openid',
-        'warningNum',
         'createdAt',
         'updatedAt'
       ]
