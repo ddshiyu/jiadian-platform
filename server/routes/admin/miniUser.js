@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { User, Address, Order } = require('../../models');
 const { Op } = require('sequelize');
+const adminAuth = require('../../middleware/adminAuth');
+const sequelize = require('../../config/database');
 
 /**
  * @api {get} /admin/mini-users/page 获取小程序用户列表
@@ -11,6 +13,7 @@ const { Op } = require('sequelize');
  * @apiParam {Number} [pageSize=10] 每页数量
  * @apiParam {String} [keyword] 搜索关键词（可搜索昵称、手机号）
  * @apiParam {String} [gender] 性别过滤（男/女/其他）
+ * @apiParam {String} [userType] 用户类型过滤（consumer/supplier）
  */
 router.get('/page', async (req, res) => {
   try {
@@ -21,6 +24,7 @@ router.get('/page', async (req, res) => {
     });
     const keyword = req.query.keyword || '';
     const gender = req.query.gender;
+    const userType = req.query.userType;
 
     // 构建查询条件
     const where = {};
@@ -38,6 +42,11 @@ router.get('/page', async (req, res) => {
       where.gender = gender;
     }
 
+    // 用户类型过滤
+    if (userType) {
+      where.userType = userType;
+    }
+
     // 查询用户总数
     const total = await User.count({ where });
 
@@ -47,7 +56,7 @@ router.get('/page', async (req, res) => {
       attributes: [
         'id', 'nickname', 'gender', 'avatar',
         'phone', 'age', 'openid', 'warningNum',
-        'createdAt', 'updatedAt'
+        'createdAt', 'updatedAt', 'userType'
       ],
       order: [['createdAt', 'DESC']],
       offset,
@@ -90,7 +99,7 @@ router.get('/:id', async (req, res) => {
       attributes: [
         'id', 'nickname', 'gender', 'avatar',
         'phone', 'age', 'openid', 'warningNum',
-        'createdAt', 'updatedAt'
+        'createdAt', 'updatedAt', 'userType'
       ],
       include: [
         {
@@ -157,6 +166,58 @@ router.put('/:id/warning-num', async (req, res) => {
     console.error('更新用户提醒次数失败:', error);
     res.status(500).json({
       message: '更新用户提醒次数失败',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @api {put} /admin/mini-users/:id/user-type 设置用户身份类型
+ * @apiName UpdateUserType
+ * @apiGroup AdminMiniUser
+ * @apiParam {Number} id 用户ID
+ * @apiDescription 一键切换用户身份类型：如果用户是消费者则设置为供应商，反之亦然
+ */
+router.put('/:id/user-type', adminAuth, async (req, res) => {
+  // 开启事务
+  const t = await sequelize.transaction();
+
+  try {
+    const userId = req.params.id;
+
+    // 查询用户是否存在
+    const user = await User.findByPk(userId, { transaction: t });
+
+    if (!user) {
+      await t.rollback();
+      return res.status(404).json({
+        message: '用户不存在'
+      });
+    }
+
+    // 确定新的用户类型（如果当前是消费者则切换为供应商，反之亦然）
+    const newUserType = user.userType === 'consumer' ? 'supplier' : 'consumer';
+
+    // 更新用户身份类型
+    await user.update({ userType: newUserType }, { transaction: t });
+
+    // 提交事务
+    await t.commit();
+
+    res.status(200).json({
+      message: `用户身份已从${user.userType === 'consumer' ? '消费者' : '供应商'}切换为${newUserType === 'consumer' ? '消费者' : '供应商'}`,
+      user: {
+        id: user.id,
+        nickname: user.nickname,
+        userType: newUserType
+      }
+    });
+  } catch (error) {
+    // 回滚事务
+    await t.rollback();
+    console.error('更新用户身份类型失败:', error);
+    res.status(500).json({
+      message: '更新用户身份类型失败',
       error: error.message
     });
   }

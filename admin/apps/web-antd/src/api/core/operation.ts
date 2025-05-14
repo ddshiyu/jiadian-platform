@@ -39,6 +39,15 @@ export async function updateMiniAppUserWarningNumApi(
   });
 }
 
+export async function updateMiniAppUserTypeApi(
+  id: number,
+  supplierInfo?: Record<string, any>,
+) {
+  return requestClient.put<any>(`/admin/mini-users/${id}/user-type`, {
+    supplierInfo,
+  });
+}
+
 export async function addMiniAppUserApi(data: MiniAppUser) {
   return requestClient.post<any>('/sys/miniAppUser/add', data);
 }

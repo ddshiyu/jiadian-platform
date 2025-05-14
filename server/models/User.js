@@ -16,6 +16,7 @@
  * - inviteCode: 用户唯一邀请码
  * - isVip: 是否是VIP用户
  * - vipExpireDate: VIP过期时间
+ * - userType: 用户身份类型（consumer-消费者、supplier-供应商）
  *
  * 关联关系：
  * - 一个用户可以有多个地址(Address)
@@ -100,6 +101,12 @@ const User = sequelize.define("User", {
     type: DataTypes.DATE,
     allowNull: true,
     comment: 'VIP过期时间'
+  },
+  userType: {
+    type: DataTypes.ENUM('consumer', 'supplier'),
+    allowNull: false,
+    defaultValue: 'consumer',
+    comment: '用户身份类型：消费者或供应商'
   }
 });
 
