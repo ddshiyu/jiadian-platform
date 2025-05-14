@@ -69,6 +69,7 @@ export interface Product {
   originalPrice?: number;
   wholesalePrice: number;
   wholesaleThreshold: number;
+  vipPrice: number;
   stock: number;
   cover?: string;
   images?: string[];

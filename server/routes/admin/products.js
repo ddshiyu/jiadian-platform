@@ -132,7 +132,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const {
-      name, description, price, originalPrice, wholesalePrice, wholesaleThreshold,
+      name, description, price, originalPrice, wholesalePrice, wholesaleThreshold, vipPrice,
       stock, cover, images, status, categoryId, isRecommended
     } = req.body;
 
@@ -149,6 +149,7 @@ router.post('/', async (req, res) => {
       originalPrice,
       wholesalePrice,
       wholesaleThreshold,
+      vipPrice,
       stock: stock || 0,
       cover,
       images,
@@ -178,7 +179,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const {
-      name, description, price, originalPrice, wholesalePrice, wholesaleThreshold,
+      name, description, price, originalPrice, wholesalePrice, wholesaleThreshold, vipPrice,
       stock, cover, images, status, categoryId, isRecommended
     } = req.body;
 
@@ -195,6 +196,7 @@ router.put('/:id', async (req, res) => {
     if (originalPrice !== undefined) product.originalPrice = originalPrice;
     if (wholesalePrice !== undefined) product.wholesalePrice = wholesalePrice;
     if (wholesaleThreshold !== undefined) product.wholesaleThreshold = wholesaleThreshold;
+    if (vipPrice !== undefined) product.vipPrice = vipPrice;
     if (stock !== undefined) product.stock = stock;
     if (cover !== undefined) product.cover = cover;
     if (images !== undefined) product.images = images;

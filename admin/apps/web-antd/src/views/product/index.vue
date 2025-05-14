@@ -68,6 +68,7 @@ interface Product {
   originalPrice?: number;
   wholesalePrice?: number;
   wholesaleThreshold: number;
+  vipPrice: number;
   stock: number;
   category?: Category;
   categoryId?: number | undefined;
@@ -120,6 +121,12 @@ const columns = [
     title: '批发阈值',
     dataIndex: 'wholesaleThreshold',
     key: 'wholesaleThreshold',
+    width: 100,
+  },
+  {
+    title: 'VIP价格',
+    dataIndex: 'vipPrice',
+    key: 'vipPrice',
     width: 100,
   },
   {
@@ -192,6 +199,7 @@ const formData = reactive<Product>({
   originalPrice: 0,
   wholesalePrice: 0,
   wholesaleThreshold: 0,
+  vipPrice: 0,
   stock: 0,
   categoryId: undefined,
   status: 'off_sale',
@@ -211,6 +219,7 @@ const formRules: FormRuleType = {
   wholesaleThreshold: [
     { required: true, message: '请输入批发阈值', trigger: 'blur' },
   ],
+  vipPrice: [{ required: true, message: '请输入VIP价格', trigger: 'blur' }],
   categoryId: [
     { required: true, message: '请选择商品分类', trigger: 'change' },
   ],
@@ -370,6 +379,7 @@ const handleAdd = () => {
     originalPrice: 0,
     wholesalePrice: 0,
     wholesaleThreshold: 0,
+    vipPrice: 0,
     stock: 0,
     categoryId: undefined,
     status: 'off_sale',
@@ -401,6 +411,7 @@ const handleEdit = async (record: any) => {
         originalPrice: productData.originalPrice || 0,
         wholesalePrice: productData.wholesalePrice || 0,
         wholesaleThreshold: productData.wholesaleThreshold || 0,
+        vipPrice: productData.vipPrice || 0,
         stock: productData.stock,
         categoryId: productData.categoryId,
         status: productData.status,
@@ -478,6 +489,7 @@ const handleSubmit = async () => {
         originalPrice: formData.originalPrice,
         wholesalePrice: formData.wholesalePrice || 0,
         wholesaleThreshold: formData.wholesaleThreshold || 0,
+        vipPrice: formData.vipPrice || 0,
         stock: formData.stock,
         categoryId: formData.categoryId as number,
         status: formData.status as 'off_sale' | 'on_sale',
@@ -640,6 +652,9 @@ const formatDate = (date: string): string => {
               {{ record.wholesaleThreshold ? '件' : '' }}
             </span>
           </template>
+          <template v-if="column.key === 'vipPrice'">
+            <span class="price">¥{{ record.vipPrice }}</span>
+          </template>
           <template v-if="column.key === 'status'">
             <Tag :color="record.status === 'on_sale' ? 'green' : 'orange'">
               {{ record.status === 'on_sale' ? '在售' : '下架' }}
@@ -742,6 +757,16 @@ const formatDate = (date: string): string => {
             style="width: 100%"
           />
           <div class="form-item-help">达到此数量可享受批发价</div>
+        </FormItem>
+        <FormItem label="VIP价格" name="vipPrice" required>
+          <InputNumber
+            v-model:value="formData.vipPrice"
+            placeholder="请输入VIP价格"
+            :min="0"
+            :precision="2"
+            style="width: 100%"
+          />
+          <div class="form-item-help">VIP会员专享价格</div>
         </FormItem>
         <FormItem label="库存" name="stock">
           <InputNumber
