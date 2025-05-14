@@ -9,6 +9,7 @@
  * - price: 商品价格
  * - originalPrice: 商品原价
  * - wholesalePrice: 商品批发价格
+ * - wholesaleThreshold: 批发价格阈值（购买数量达到此值时使用批发价）
  * - stock: 库存数量
  * - sales: 销售数量
  * - cover: 商品封面图
@@ -47,6 +48,12 @@ const Product = sequelize.define("Product", {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true,
     comment: '商品批发价格'
+  },
+  wholesaleThreshold: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 10,
+    comment: '批发价格阈值（购买数量达到此值时使用批发价）'
   },
   stock: {
     type: DataTypes.INTEGER,

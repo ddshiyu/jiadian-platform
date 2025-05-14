@@ -67,6 +67,7 @@ interface Product {
   price: number;
   originalPrice?: number;
   wholesalePrice?: number;
+  wholesaleThreshold: number;
   stock: number;
   category?: Category;
   categoryId?: number | undefined;
@@ -113,6 +114,12 @@ const columns = [
     title: '批发价',
     dataIndex: 'wholesalePrice',
     key: 'wholesalePrice',
+    width: 100,
+  },
+  {
+    title: '批发阈值',
+    dataIndex: 'wholesaleThreshold',
+    key: 'wholesaleThreshold',
     width: 100,
   },
   {
@@ -184,6 +191,7 @@ const formData = reactive<Product>({
   price: 0,
   originalPrice: 0,
   wholesalePrice: 0,
+  wholesaleThreshold: 0,
   stock: 0,
   categoryId: undefined,
   status: 'off_sale',
@@ -199,6 +207,9 @@ const formRules: FormRuleType = {
   price: [{ required: true, message: '请输入商品价格', trigger: 'blur' }],
   wholesalePrice: [
     { required: true, message: '请输入批发价格', trigger: 'blur' },
+  ],
+  wholesaleThreshold: [
+    { required: true, message: '请输入批发阈值', trigger: 'blur' },
   ],
   categoryId: [
     { required: true, message: '请选择商品分类', trigger: 'change' },
@@ -358,6 +369,7 @@ const handleAdd = () => {
     price: 0,
     originalPrice: 0,
     wholesalePrice: 0,
+    wholesaleThreshold: 0,
     stock: 0,
     categoryId: undefined,
     status: 'off_sale',
@@ -388,6 +400,7 @@ const handleEdit = async (record: any) => {
         price: productData.price,
         originalPrice: productData.originalPrice || 0,
         wholesalePrice: productData.wholesalePrice || 0,
+        wholesaleThreshold: productData.wholesaleThreshold || 0,
         stock: productData.stock,
         categoryId: productData.categoryId,
         status: productData.status,
@@ -463,7 +476,8 @@ const handleSubmit = async () => {
         description: formData.description,
         price: formData.price,
         originalPrice: formData.originalPrice,
-        wholesalePrice: formData.wholesalePrice,
+        wholesalePrice: formData.wholesalePrice || 0,
+        wholesaleThreshold: formData.wholesaleThreshold || 0,
         stock: formData.stock,
         categoryId: formData.categoryId as number,
         status: formData.status as 'off_sale' | 'on_sale',
@@ -620,6 +634,12 @@ const formatDate = (date: string): string => {
           <template v-if="column.key === 'wholesalePrice'">
             <span class="price">¥{{ record.wholesalePrice }}</span>
           </template>
+          <template v-if="column.key === 'wholesaleThreshold'">
+            <span>
+              {{ record.wholesaleThreshold || '-' }}
+              {{ record.wholesaleThreshold ? '件' : '' }}
+            </span>
+          </template>
           <template v-if="column.key === 'status'">
             <Tag :color="record.status === 'on_sale' ? 'green' : 'orange'">
               {{ record.status === 'on_sale' ? '在售' : '下架' }}
@@ -713,6 +733,15 @@ const formatDate = (date: string): string => {
             :precision="2"
             style="width: 100%"
           />
+        </FormItem>
+        <FormItem label="批发阈值" name="wholesaleThreshold" required>
+          <InputNumber
+            v-model:value="formData.wholesaleThreshold"
+            placeholder="请输入批发阈值（件）"
+            :min="0"
+            style="width: 100%"
+          />
+          <div class="form-item-help">达到此数量可享受批发价</div>
         </FormItem>
         <FormItem label="库存" name="stock">
           <InputNumber
@@ -837,5 +866,11 @@ const formatDate = (date: string): string => {
   &:hover {
     color: #ff4d4f;
   }
+}
+
+.form-item-help {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
 }
 </style>
