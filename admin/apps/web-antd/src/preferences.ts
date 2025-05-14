@@ -16,7 +16,6 @@ export const overridesPreferences = defineOverridesPreferences({
   },
   logo: {
     enable: true,
-    source:
-      'https://wx.qlogo.cn/mmhead/0yOibuhvkGF9waJQ0PxibU91IL7bVZic6UzHYAPCibibT7SI6VQ8bkibVWFfy31xRyHoicEuickrmWsczR0/0',
+    source: '/R.jpeg',
   },
 });
