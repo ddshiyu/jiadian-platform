@@ -66,6 +66,7 @@ interface Product {
   description?: string;
   price: number;
   originalPrice?: number;
+  wholesalePrice?: number;
   stock: number;
   category?: Category;
   categoryId?: number | undefined;
@@ -106,6 +107,12 @@ const columns = [
     title: '价格',
     dataIndex: 'price',
     key: 'price',
+    width: 100,
+  },
+  {
+    title: '批发价',
+    dataIndex: 'wholesalePrice',
+    key: 'wholesalePrice',
     width: 100,
   },
   {
@@ -176,6 +183,7 @@ const formData = reactive<Product>({
   description: '',
   price: 0,
   originalPrice: 0,
+  wholesalePrice: 0,
   stock: 0,
   categoryId: undefined,
   status: 'off_sale',
@@ -189,6 +197,9 @@ type FormRuleType = Record<string, RuleObject[]>;
 const formRules: FormRuleType = {
   name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
   price: [{ required: true, message: '请输入商品价格', trigger: 'blur' }],
+  wholesalePrice: [
+    { required: true, message: '请输入批发价格', trigger: 'blur' },
+  ],
   categoryId: [
     { required: true, message: '请选择商品分类', trigger: 'change' },
   ],
@@ -346,6 +357,7 @@ const handleAdd = () => {
     description: '',
     price: 0,
     originalPrice: 0,
+    wholesalePrice: 0,
     stock: 0,
     categoryId: undefined,
     status: 'off_sale',
@@ -375,6 +387,7 @@ const handleEdit = async (record: any) => {
         description: productData.description || '',
         price: productData.price,
         originalPrice: productData.originalPrice || 0,
+        wholesalePrice: productData.wholesalePrice || 0,
         stock: productData.stock,
         categoryId: productData.categoryId,
         status: productData.status,
@@ -450,6 +463,7 @@ const handleSubmit = async () => {
         description: formData.description,
         price: formData.price,
         originalPrice: formData.originalPrice,
+        wholesalePrice: formData.wholesalePrice,
         stock: formData.stock,
         categoryId: formData.categoryId as number,
         status: formData.status as 'off_sale' | 'on_sale',
@@ -603,6 +617,9 @@ const formatDate = (date: string): string => {
           <template v-if="column.key === 'price'">
             <span class="price">¥{{ record.price }}</span>
           </template>
+          <template v-if="column.key === 'wholesalePrice'">
+            <span class="price">¥{{ record.wholesalePrice }}</span>
+          </template>
           <template v-if="column.key === 'status'">
             <Tag :color="record.status === 'on_sale' ? 'green' : 'orange'">
               {{ record.status === 'on_sale' ? '在售' : '下架' }}
@@ -683,6 +700,15 @@ const formatDate = (date: string): string => {
           <InputNumber
             v-model:value="formData.originalPrice"
             placeholder="请输入商品原价"
+            :min="0"
+            :precision="2"
+            style="width: 100%"
+          />
+        </FormItem>
+        <FormItem label="批发价格" name="wholesalePrice" required>
+          <InputNumber
+            v-model:value="formData.wholesalePrice"
+            placeholder="请输入批发价格"
             :min="0"
             :precision="2"
             style="width: 100%"

@@ -132,7 +132,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const {
-      name, description, price, originalPrice,
+      name, description, price, originalPrice, wholesalePrice,
       stock, cover, images, status, categoryId, isRecommended
     } = req.body;
 
@@ -147,6 +147,7 @@ router.post('/', async (req, res) => {
       description,
       price,
       originalPrice,
+      wholesalePrice,
       stock: stock || 0,
       cover,
       images,
@@ -176,7 +177,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const {
-      name, description, price, originalPrice,
+      name, description, price, originalPrice, wholesalePrice,
       stock, cover, images, status, categoryId, isRecommended
     } = req.body;
 
@@ -191,6 +192,7 @@ router.put('/:id', async (req, res) => {
     if (description !== undefined) product.description = description;
     if (price !== undefined) product.price = price;
     if (originalPrice !== undefined) product.originalPrice = originalPrice;
+    if (wholesalePrice !== undefined) product.wholesalePrice = wholesalePrice;
     if (stock !== undefined) product.stock = stock;
     if (cover !== undefined) product.cover = cover;
     if (images !== undefined) product.images = images;
@@ -212,8 +214,6 @@ router.put('/:id', async (req, res) => {
     });
   }
 });
-
-
 
 /**
  * @api {delete} /admin/products/:id 删除商品

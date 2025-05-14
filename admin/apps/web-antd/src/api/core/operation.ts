@@ -67,6 +67,7 @@ export interface Product {
   description?: string;
   price: number;
   originalPrice?: number;
+  wholesalePrice: number;
   stock: number;
   cover?: string;
   images?: string[];

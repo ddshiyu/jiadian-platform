@@ -8,6 +8,7 @@
  * - description: 商品描述
  * - price: 商品价格
  * - originalPrice: 商品原价
+ * - wholesalePrice: 商品批发价格
  * - stock: 库存数量
  * - sales: 销售数量
  * - cover: 商品封面图
@@ -41,6 +42,11 @@ const Product = sequelize.define("Product", {
   originalPrice: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true
+  },
+  wholesalePrice: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+    comment: '商品批发价格'
   },
   stock: {
     type: DataTypes.INTEGER,
