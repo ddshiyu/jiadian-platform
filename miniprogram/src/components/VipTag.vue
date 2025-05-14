@@ -1,8 +1,8 @@
 <template>
-  <view class="vip-tag" v-if="isVip || showNonVip">
+  <view v-if="isVip || showNonVip" class="vip-tag">
     <view class="vip-price" :class="{ 'non-vip': !isVip }">
       <text class="vip-icon">VIP</text>
-      <text class="vip-price-text">¥{{ vipPrice.toFixed(2) }}</text>
+      <text class="vip-price-text">¥{{ vipPrice }}</text>
     </view>
     <view v-if="!isVip && showButton" class="vip-button" @click="goToVip">
       <text>开通享优惠</text>
@@ -18,9 +18,9 @@ const props = defineProps({
     type: Number,
     required: true
   },
-  discount: {
+  vipPrice: {
     type: Number,
-    default: 0.95 // 默认VIP折扣为95折
+    required: true // 直接传入VIP价格，必填
   },
   showNonVip: {
     type: Boolean,
@@ -34,11 +34,6 @@ const props = defineProps({
 
 // 从App.vue注入用户信息
 const userInfo = inject('userInfo');
-
-// 计算VIP价格
-const vipPrice = computed(() => {
-  return props.price * props.discount;
-});
 
 // 判断是否为VIP
 const isVip = computed(() => {

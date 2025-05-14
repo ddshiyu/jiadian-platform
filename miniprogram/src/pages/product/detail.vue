@@ -28,6 +28,8 @@
         ></nut-price>
         <text v-if="product.originalPrice" class="original-price">¥{{ product.originalPrice }}</text>
       </view>
+      <!-- VIP价格标签 -->
+      <VipTag :price="product.price" :vip-price="product.vipPrice" />
       <nut-ellipsis
         :content="product.name"
         direction="end"
@@ -81,10 +83,14 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, inject } from 'vue';
 import { productApi } from '../../api/product';
 import { cartApi } from '../../api/cart';
 import { onLoad } from '@dcloudio/uni-app';
+import VipTag from '@/components/VipTag.vue';
+
+// 从App.vue注入用户信息
+const userInfo = inject('userInfo');
 
 // 获取页面参数
 const productId = ref(null);
@@ -95,6 +101,7 @@ const product = reactive({
   name: '',
   description: '',
   price: 0,
+  vipPrice: 0,
   originalPrice: 0,
   stock: 0,
   cover: '',
@@ -212,10 +219,14 @@ const loadCartCount = async () => {
 // 加入购物车
 const addToCart = async () => {
   try {
+    // 使用VIP价格或普通价格
+    const actualPrice = userInfo.isVip ? product.vipPrice : product.price;
+    
     // 调用API添加商品到购物车
     const data = {
       productId: product.id,
       quantity: quantity.value,
+      price: actualPrice
     };
     console.log('添加购物车参数:', data);
     
@@ -278,9 +289,12 @@ const buyNow = async () => {
       title: '正在创建订单...'
     });
     
+    // 使用VIP价格或普通价格
+    const actualPrice = userInfo.isVip ? product.vipPrice : product.price;
+    
     // 跳转到订单确认页面，由订单确认页面处理后续逻辑
     uni.navigateTo({
-      url: `/pages/order/checkout?productId=${product.id}&quantity=${quantity.value}`
+      url: `/pages/order/checkout?productId=${product.id}&quantity=${quantity.value}&price=${actualPrice}`
     });
   } catch (error) {
     console.error('创建订单失败:', error);
@@ -329,7 +343,7 @@ const navigateToCart = () => {
 .price-box {
   display: flex;
   align-items: baseline;
-  margin-bottom: 20rpx;
+  margin-bottom: 10rpx;
 }
 
 .price {
@@ -342,6 +356,23 @@ const navigateToCart = () => {
   color: #999;
   text-decoration: line-through;
   margin-left: 20rpx;
+}
+
+/* VIP价格标签样式 */
+:deep(.vip-tag) {
+  margin-bottom: 20rpx;
+}
+
+:deep(.vip-price) {
+  padding: 6rpx 12rpx;
+}
+
+:deep(.vip-icon) {
+  font-size: 22rpx;
+}
+
+:deep(.vip-price-text) {
+  font-size: 26rpx;
 }
 
 .product-name {

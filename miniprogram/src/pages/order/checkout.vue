@@ -82,7 +82,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { productApi } from '../../api/product';
 import { cartApi } from '../../api/cart';
@@ -157,8 +157,15 @@ onLoad((options) => {
       quantity.value = Number(options.quantity);
     }
     
-    // 加载商品详情
-    loadProductDetail();
+    // 如果传递了价格参数（VIP价格），直接使用
+    if (options.price) {
+      product.price = Number(options.price);
+      // 直接使用传递的价格，不再调用商品详情接口
+      loadProductBasicInfo();
+    } else {
+      // 没有传递价格，加载商品详情
+      loadProductDetail();
+    }
   }
   
   // 加载默认收货地址
@@ -179,6 +186,39 @@ const loadCartSelectedItems = () => {
     setTimeout(() => {
       uni.navigateBack();
     }, 1500);
+  }
+};
+
+// 加载商品基本信息（不包括价格）
+const loadProductBasicInfo = async () => {
+  if (!productId.value) return;
+  
+  try {
+    uni.showLoading({ title: '加载中' });
+    const res = await productApi.getDetail(productId.value.toString());
+    
+    if (res && res.code === 0 && res.data) {
+      Object.assign(product, {
+        id: res.data.id,
+        name: res.data.name,
+        // 不覆盖已有的价格
+        cover: res.data.cover,
+        stock: res.data.stock
+      });
+    } else {
+      uni.showToast({
+        title: '获取商品信息失败',
+        icon: 'none'
+      });
+    }
+  } catch (error) {
+    console.error('获取商品信息失败:', error);
+    uni.showToast({
+      title: '获取商品信息失败',
+      icon: 'none'
+    });
+  } finally {
+    uni.hideLoading();
   }
 };
 

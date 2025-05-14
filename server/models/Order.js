@@ -19,6 +19,7 @@
  * - address: 收货地址
  * - remark: 订单备注
  * - transactionId: 交易流水号
+ * - orderType: 订单类型（普通商品订单、VIP订单等）
  *
  * 关联关系：
  * - 订单属于一个用户(User)
@@ -124,6 +125,12 @@ const Order = sequelize.define("Order", {
     type: DataTypes.STRING,
     allowNull: true,
     comment: '交易流水号'
+  },
+  orderType: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: 'normal',
+    comment: '订单类型：normal-普通商品订单，vip-VIP订单'
   }
 }, {
   tableName: 'Orders',
@@ -309,6 +316,7 @@ const syncOrderTable = async (retries = 5, delay = 2000) => {
             \`address\` VARCHAR(255),
             \`remark\` VARCHAR(255),
             \`transactionId\` VARCHAR(255),
+            \`orderType\` VARCHAR(20) DEFAULT 'normal',
             \`createdAt\` DATETIME NOT NULL,
             \`updatedAt\` DATETIME NOT NULL,
             PRIMARY KEY (\`id\`),
