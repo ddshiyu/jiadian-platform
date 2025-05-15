@@ -26,7 +26,24 @@
             class="login-btn" 
             open-type="getPhoneNumber" 
             @getphonenumber="getPhoneNumber"
-          >点击登录</button>
+          >
+            点击登录
+          </button>
+          <view v-if="userInfo.isLoggedIn && userInfo.phone" class="user-phone">
+            {{ formatPhone(userInfo.phone) }}
+          </view>
+          <view v-if="userInfo.isLoggedIn && !userInfo.phone" class="user-phone">
+            <text class="bind-phone" @click="showPhoneButton">点击绑定手机号</text>
+            <!-- 临时授权按钮 -->
+            <button 
+              v-if="showAuthButton" 
+              class="auth-phone-btn" 
+              open-type="getPhoneNumber" 
+              @getphonenumber="getPhoneNumber"
+            >
+              一键授权
+            </button>
+          </view>
           <view v-if="userInfo.isLoggedIn && inviteData.commission > 0" class="commission">
             累计佣金: ¥{{ inviteData.commission.toFixed(2) }}
           </view>
@@ -59,13 +76,17 @@
           type="primary" 
           size="small" 
           @click="showVipOptions"
-        >立即开通</nut-button>
+        >
+          立即开通
+        </nut-button>
         <nut-button 
           v-else 
           type="primary" 
           size="small" 
           @click="showVipOptions"
-        >续费会员</nut-button>
+        >
+          续费会员
+        </nut-button>
       </view>
     </view>
     
@@ -152,28 +173,6 @@
         </template>
       </nut-cell>
       <nut-cell 
-        v-if="userInfo.isLoggedIn && !userInfo.phone"
-        title="绑定手机号" 
-        is-link
-      >
-        <template #icon>
-          <nut-icon name="tel" size="18"></nut-icon>
-        </template>
-        <template #link>
-          <button class="phone-btn" open-type="getPhoneNumber" @getphonenumber="getPhoneNumber">
-            <text class="phone-btn-text">一键授权</text>
-          </button>
-        </template>
-      </nut-cell>
-      <nut-cell 
-        v-if="userInfo.isLoggedIn && userInfo.phone"
-        :title="'手机号: ' + formatPhone(userInfo.phone)" 
-      >
-        <template #icon>
-          <nut-icon name="tel" size="18"></nut-icon>
-        </template>
-      </nut-cell>
-      <nut-cell 
         v-if="userInfo.isLoggedIn"
         title="邀请记录" 
         is-link 
@@ -247,6 +246,9 @@ import { orderApi } from '../../api/order';
 
 // 从App.vue注入用户信息
 const userInfo = inject('userInfo');
+
+// 是否显示临时授权按钮
+const showAuthButton = ref(false);
 
 // 订单数量
 const orderCount = reactive({
@@ -410,6 +412,8 @@ const getPhoneNumber = async (e) => {
       title: '获取手机号失败',
       icon: 'none'
     });
+    // 隐藏临时授权按钮
+    showAuthButton.value = false;
     return;
   }
 
@@ -431,6 +435,8 @@ const getPhoneNumber = async (e) => {
         title: '登录失败',
         icon: 'none'
       });
+      // 隐藏临时授权按钮
+      showAuthButton.value = false;
       return;
     }
     
@@ -467,6 +473,9 @@ const getPhoneNumber = async (e) => {
         icon: 'none'
       });
     }
+    
+    // 隐藏临时授权按钮
+    showAuthButton.value = false;
   } catch (error) {
     uni.hideLoading();
     console.error('登录失败:', error);
@@ -474,6 +483,8 @@ const getPhoneNumber = async (e) => {
       title: '登录失败',
       icon: 'none'
     });
+    // 隐藏临时授权按钮
+    showAuthButton.value = false;
   }
 };
 
@@ -500,6 +511,24 @@ const getWxCode = () => {
 const formatPhone = (phone) => {
   if (!phone || phone.length !== 11) return phone;
   return phone.substring(0, 3) + '****' + phone.substring(7);
+};
+
+// 显示手机号授权按钮
+const showPhoneButton = () => {
+  uni.showModal({
+    title: '绑定手机号',
+    content: '是否授权获取您的手机号码？',
+    success: (res) => {
+      if (res.confirm) {
+        // 用户点击确定，显示微信授权按钮
+        showAuthButton.value = true;
+        uni.showToast({
+          title: '请点击"一键授权"按钮',
+          icon: 'none'
+        });
+      }
+    }
+  });
 };
 
 // 关于我们
@@ -655,10 +684,32 @@ const formatDate = (date) => {
   font-weight: bold;
 }
 
+.user-phone {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 8rpx;
+}
+
+.bind-phone {
+  color: #FFD700;
+  text-decoration: underline;
+}
+
+.auth-phone-btn {
+  margin-top: 10rpx;
+  background: #FFD700;
+  color: #E31D1A;
+  border-radius: 30rpx;
+  padding: 4rpx 16rpx;
+  font-size: 22rpx;
+  border: none;
+  line-height: 1.5;
+}
+
 .commission {
   font-size: 24rpx;
   color: #ffecec;
-  margin-top: 5rpx;
+  margin-top: 8rpx;
 }
 
 .setting-btn {
