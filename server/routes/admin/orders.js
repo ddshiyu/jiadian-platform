@@ -160,7 +160,7 @@ router.get('/:id', async (req, res) => {
       include: [
         {
           model: User,
-          attributes: ['id', 'username', 'name', 'phone']
+          attributes: ['id', 'nickname', 'phone', 'avatar']
         },
         {
           model: OrderItem,
@@ -200,6 +200,12 @@ router.get('/:id', async (req, res) => {
       orderType: orderData.orderType,
       createdAt: orderData.createdAt,
       updatedAt: orderData.updatedAt,
+      user: orderData.User ? {
+        id: orderData.User.id,
+        nickname: orderData.User.nickname,
+        phone: orderData.User.phone,
+        avatar: orderData.User.avatar
+      } : null,
       items: orderData.OrderItems ? orderData.OrderItems.map(item => ({
         id: item.id,
         productId: item.productId,
