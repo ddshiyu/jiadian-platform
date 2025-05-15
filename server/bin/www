@@ -6,7 +6,7 @@
 
 var app = require('../app');
 var debug = require('debug')('serve:server');
-var http = require('http');
+var https = require('https');
 const fs = require('fs');
 const path = require('path');
 
@@ -17,8 +17,8 @@ const { AdminUser } = require('../models/admin');
 
 // 配置 SSL 证书和私钥的路径
 const options = {
-  key: fs.readFileSync(path.join(__dirname, '../ssl/www.xinxingbaihuo.cn.key')),
-  cert: fs.readFileSync(path.join(__dirname, '../ssl/www.xinxingbaihuo.cn.pem'))
+  key: fs.readFileSync(path.join(__dirname, '../ssl/qbylxb.cn.key')),
+  cert: fs.readFileSync(path.join(__dirname, '../ssl/qbylxb.cn.pem'))
 };
 
 /**
@@ -81,7 +81,7 @@ async function startServer() {
     var port = normalizePort(process.env.PORT || '443');
     app.set('port', port);
 
-    var server = http.createServer(options, app);
+    var server = https.createServer(options, app);
 
     server.listen(port);
     server.on('error', onError);
