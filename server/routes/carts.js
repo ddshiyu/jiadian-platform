@@ -305,7 +305,8 @@ router.post('/checkout', auth, async (req, res) => {
         consignee: address.name,
         phone: address.phone,
         address: `${address.province}${address.city}${address.district}${address.detail}`,
-        remark: req.body.remark || ''
+        remark: req.body.remark || '',
+        orderType: 'normal'
       }, { transaction: t });
 
       // 创建订单项并减少商品库存

@@ -7,7 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 router.get('/', async (req, res) => {
   try {
     const userId = req.user.id;
-    const { status } = req.query;
+    const { status, orderType } = req.query;
 
     // 使用中间件提供的分页参数获取方法
     const { page, size, offset } = req.getPaginationParams({
@@ -21,6 +21,9 @@ router.get('/', async (req, res) => {
     if (status) {
       where.status = status;
     }
+    if (orderType) {
+      where.orderType = orderType;
+    }
 
     // 获取订单总数
     const total = await Order.count({ where });
@@ -28,6 +31,11 @@ router.get('/', async (req, res) => {
     // 获取订单列表
     const orders = await Order.findAll({
       where,
+      attributes: [
+        'id', 'orderNo', 'totalAmount', 'status',
+        'paymentStatus', 'orderType', 'createdAt', 'updatedAt',
+        'consignee', 'phone', 'address', 'remark'
+      ],
       include: [
         {
           model: OrderItem,
@@ -73,7 +81,7 @@ router.post('/', async (req, res) => {
     const userId = req.user.id;
     const {
       receiverName, receiverPhone, receiverAddress,
-      products, remark
+      products, remark, orderType = 'normal'
     } = req.body;
 
     // 验证必填字段
@@ -131,7 +139,8 @@ router.post('/', async (req, res) => {
         consignee: receiverName,
         phone: receiverPhone,
         address: receiverAddress,
-        remark
+        remark,
+        orderType
       },
       { transaction: t }
     );

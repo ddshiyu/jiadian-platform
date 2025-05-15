@@ -259,6 +259,8 @@ const generateMockOrders = () => {
     'refunded',
   ];
 
+  const orderTypes = ['normal', 'vip', 'wholesale'];
+
   return Array.from({ length: 25 }).map((_, index) => {
     const status = statuses[Math.floor(Math.random() * statuses.length)];
     const paymentStatus =
@@ -275,6 +277,7 @@ const generateMockOrders = () => {
       userId: index + 100,
       userName: `测试用户${index + 1}`,
       totalAmount: Number(Math.floor(Math.random() * 10_000) / 100 + 100),
+      orderType: orderTypes[Math.floor(Math.random() * orderTypes.length)],
       status: status as Order['status'],
       paymentStatus: paymentStatus as Order['paymentStatus'],
       paymentMethod: paymentStatus === 'unpaid' ? undefined : '微信支付',
@@ -493,6 +496,16 @@ const getPaymentStatusColor = (status: Order['paymentStatus']) => {
   return colorMap[status] || 'default';
 };
 
+// 获取订单类型文本
+const getOrderTypeText = (type?: string) => {
+  const typeMap: Record<string, string> = {
+    normal: '普通订单',
+    vip: 'VIP订单',
+    wholesale: '批发订单',
+  };
+  return type ? typeMap[type] || type : '-';
+};
+
 // 初始化
 onMounted(() => {
   fetchData();
@@ -595,6 +608,7 @@ onMounted(() => {
             <div>
               <div>订单号: {{ record.orderNo }}</div>
               <div>用户: {{ record.userName }}</div>
+              <div>类型: {{ getOrderTypeText(record.orderType) }}</div>
             </div>
           </template>
 
@@ -675,6 +689,9 @@ onMounted(() => {
           </DescriptionsItem>
           <DescriptionsItem label="总金额">
             ¥{{ Number(currentOrder.totalAmount).toFixed(2) }}
+          </DescriptionsItem>
+          <DescriptionsItem label="订单类型">
+            {{ getOrderTypeText(currentOrder.orderType) }}
           </DescriptionsItem>
           <DescriptionsItem label="订单状态">
             <Tag :color="getStatusColor(currentOrder.status)">

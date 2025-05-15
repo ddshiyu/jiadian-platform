@@ -429,7 +429,8 @@ router.post('/pre-order', auth, async (req, res) => {
       consignee: address.name,
       phone: address.phone,
       address: `${address.province}${address.city}${address.district}${address.detail}`,
-      remark: req.body.remark || ''
+      remark: req.body.remark || '',
+      orderType: 'normal' // 设置订单类型为普通商品订单
     }, { transaction: t });
 
     // 创建订单项
@@ -491,6 +492,10 @@ router.post('/buy', auth, async (req, res) => {
         userId: req.user.id,
         status: 'pending_payment'
       },
+      attributes: [
+        'id', 'orderNo', 'totalAmount', 'status',
+        'paymentStatus', 'orderType'
+      ],
       include: [{
         model: OrderItem,
         include: [{
@@ -506,7 +511,9 @@ router.post('/buy', auth, async (req, res) => {
 
     // 构建微信支付参数
     const params = {
-      description: `购买商品: ${order.OrderItems[0]?.productName || '未知商品'}`,
+      description: order.orderType === 'normal' ?
+        `购买商品: ${order.OrderItems[0]?.productName || '未知商品'}` :
+        `订单支付: ${order.orderNo}`,
       out_trade_no: order.orderNo,
       notify_url: `${process.env.DOMAIN || process.env.WECHAT_SUCCESSCALLBACK || 'http://localhost:3000'}/products/notify`,
       amount: {
@@ -573,7 +580,7 @@ router.post('/notify', async (req, res) => {
           console.log(order)
           if (order) {
             // 更新订单状态为已支付
-            order.status = 'pending_delivery';
+            order.status = order.orderType === 'normal' ? 'pending_delivery' : 'completed';
             order.paymentStatus = 'paid';
             order.paymentMethod = 'wechat';
             order.paymentTime = new Date();
@@ -584,7 +591,7 @@ router.post('/notify', async (req, res) => {
             // 提交事务
             await t.commit();
 
-            console.log(`订单 ${result.out_trade_no} 支付成功已更新`);
+            console.log(`订单 ${result.out_trade_no} 支付成功已更新，类型: ${order.orderType}`);
           } else {
             console.error(`未找到订单: ${result.out_trade_no}`);
             await t.rollback();

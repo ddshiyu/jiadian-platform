@@ -23,6 +23,7 @@ router.get('/', async (req, res) => {
       userId,
       startDate,
       endDate,
+      orderType,
       sort = 'createdAt',
       order = 'DESC'
     } = req.query;
@@ -48,6 +49,11 @@ router.get('/', async (req, res) => {
     // 用户ID查询
     if (userId) {
       where.userId = userId;
+    }
+
+    // 订单类型查询
+    if (orderType) {
+      where.orderType = orderType;
     }
 
     // 日期范围查询
@@ -111,6 +117,7 @@ router.get('/', async (req, res) => {
         address: orderData.address,
         consignee: orderData.consignee,
         phone: orderData.phone,
+        orderType: orderData.orderType,
         createdAt: orderData.createdAt,
         updatedAt: orderData.updatedAt,
         items: orderData.OrderItems ? orderData.OrderItems.map(item => ({
@@ -190,6 +197,7 @@ router.get('/:id', async (req, res) => {
       address: orderData.address,
       consignee: orderData.consignee,
       phone: orderData.phone,
+      orderType: orderData.orderType,
       createdAt: orderData.createdAt,
       updatedAt: orderData.updatedAt,
       items: orderData.OrderItems ? orderData.OrderItems.map(item => ({

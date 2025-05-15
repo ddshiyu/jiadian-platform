@@ -246,6 +246,7 @@ export interface Order {
   userId: number;
   userName: string;
   totalAmount: number;
+  orderType?: string;
   status:
     | 'cancelled'
     | 'completed'
