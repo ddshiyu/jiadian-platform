@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Product, Category, Order, OrderItem } = require('../models');
+const { Product, Category, Order, OrderItem, Address } = require('../models');
 const auth = require('../middleware/auth');
 const { Op } = require('sequelize');
 const WxPay = require('wechatpay-node-v3');
@@ -355,7 +355,7 @@ router.delete('/:id', auth, async (req, res) => {
 
 // 微信支付实例，放在路由外部全局定义，避免重复创建
 const pay = new WxPay({
-  appid: 'wxdbf33242ae262c89',
+  appid: process.env.WECHAT_APPID,
   mchid: process.env.WECHAT_MCHID,
   publicKey: fs.readFileSync(__dirname + '/../wxpay_pem/apiclient_cert.pem'), // 公钥
   privateKey: fs.readFileSync(__dirname + '/../wxpay_pem/apiclient_key.pem'), // 秘钥
@@ -368,16 +368,30 @@ router.post('/pre-order', auth, async (req, res) => {
 
   try {
     const userId = req.user.id;
-    const { productId, quantity = 1, address } = req.body;
+    const { productId, quantity = 1, addressId } = req.body;
 
     if (!productId) {
       await t.rollback();
       return res.status(400).json({ message: '商品ID不能为空' });
     }
 
-    if (!address || !address.receiverName || !address.receiverPhone || !address.receiverAddress) {
+    if (!addressId) {
       await t.rollback();
-      return res.status(400).json({ message: '收货信息不完整' });
+      return res.status(400).json({ message: '地址ID不能为空' });
+    }
+
+    // 查询地址信息
+    const address = await Address.findOne({
+      where: {
+        id: addressId,
+        userId: userId
+      },
+      transaction: t
+    });
+
+    if (!address) {
+      await t.rollback();
+      return res.status(404).json({ message: '收货地址不存在' });
     }
 
     // 检查商品是否存在
@@ -412,9 +426,9 @@ router.post('/pre-order', auth, async (req, res) => {
       totalAmount,
       status: 'pending_payment',
       paymentStatus: 'unpaid',
-      consignee: address.receiverName,
-      phone: address.receiverPhone,
-      address: address.receiverAddress,
+      consignee: address.name,
+      phone: address.phone,
+      address: `${address.province}${address.city}${address.district}${address.detail}`,
       remark: req.body.remark || ''
     }, { transaction: t });
 
