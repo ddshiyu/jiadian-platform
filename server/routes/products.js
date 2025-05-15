@@ -519,7 +519,7 @@ router.post('/buy', auth, async (req, res) => {
 
     // 调用微信支付JSAPI下单
     const payResult = await pay.transactions_jsapi(params);
-
+    console.log(payResult);
     // 返回支付参数给客户端
     res.status(200).json({
       success: true,
