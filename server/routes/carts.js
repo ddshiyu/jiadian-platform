@@ -415,7 +415,7 @@ router.post('/pay', auth, async (req, res) => {
     const params = {
       description: `购买商品: ${order.OrderItems[0]?.productName || '购物车商品'}等${order.OrderItems.length}件`,
       out_trade_no: order.orderNo,
-      notify_url: `${process.env.WECHAT_SUCCESSCALLBACK || 'http://localhost:3000'}/products/notify`,
+      notify_url: `${process.env.DOMAIN || process.env.WECHAT_SUCCESSCALLBACK || 'http://localhost:3000'}/products/notify`,
       amount: {
         total: Math.floor(order.totalAmount * 100), // 单位为分
       },
@@ -426,11 +426,11 @@ router.post('/pay', auth, async (req, res) => {
 
     // 调用微信支付JSAPI下单
     const payResult = await pay.transactions_jsapi(params);
-
+    console.log(payResult);
     // 返回支付参数给客户端
     res.status(200).json({
       success: true,
-      payParams: payResult,
+      payParams: payResult?.data ? payResult.data : payResult,
       orderInfo: {
         orderId: order.id,
         orderNo: order.orderNo,
