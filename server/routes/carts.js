@@ -241,6 +241,11 @@ router.post('/checkout', auth, async (req, res) => {
       return res.status(400).json({ message: '收货地址不能为空' });
     }
 
+    // 查询用户信息，检查是否为VIP
+    const User = require('../models/User');
+    const user = await User.findByPk(userId);
+    const isVip = user && user.isVip && user.vipExpireDate && new Date(user.vipExpireDate) > new Date();
+
     // 查询购物车中选中的商品
     const cartItems = await Cart.findAll({
       where: {
@@ -291,9 +296,34 @@ router.post('/checkout', auth, async (req, res) => {
 
       // 计算订单总金额
       let totalAmount = 0;
-      cartItems.forEach(item => {
-        totalAmount += item.Product.price * item.quantity;
-      });
+      const orderItemsData = [];
+
+      // 为每个购物车项计算价格并准备订单项数据
+      for (const item of cartItems) {
+        const product = item.Product;
+        let unitPrice = product.price; // 默认使用普通价格
+
+        // VIP用户且商品设置了VIP价格，则使用VIP价格
+        if (isVip && product.vipPrice) {
+          unitPrice = product.vipPrice;
+        }
+        // 批发购买（数量达到阈值）且设置了批发价，则使用批发价
+        else if (item.quantity >= product.wholesaleThreshold && product.wholesalePrice) {
+          unitPrice = product.wholesalePrice;
+        }
+
+        // 累加到总金额
+        totalAmount += unitPrice * item.quantity;
+
+        // 准备订单项数据
+        orderItemsData.push({
+          productId: product.id,
+          productName: product.name,
+          productImage: product.cover,
+          quantity: item.quantity,
+          price: unitPrice
+        });
+      }
 
       // 创建订单
       const order = await Order.create({
@@ -311,15 +341,18 @@ router.post('/checkout', auth, async (req, res) => {
 
       // 创建订单项并减少商品库存
       const orderItems = [];
-      for (const item of cartItems) {
+      for (let i = 0; i < cartItems.length; i++) {
+        const item = cartItems[i];
+        const itemData = orderItemsData[i];
+
         // 创建订单项
         const orderItem = await OrderItem.create({
           orderId: order.id,
-          productId: item.productId,
-          productName: item.Product.name,
-          productImage: item.Product.cover,
-          quantity: item.quantity,
-          price: item.Product.price
+          productId: itemData.productId,
+          productName: itemData.productName,
+          productImage: itemData.productImage,
+          quantity: itemData.quantity,
+          price: itemData.price
         }, { transaction: t });
 
         orderItems.push(orderItem);
@@ -354,7 +387,11 @@ router.post('/checkout', auth, async (req, res) => {
           productImage: item.productImage,
           quantity: item.quantity,
           price: item.price
-        }))
+        })),
+        priceInfo: {
+          isVip,
+          usedVipPrice: isVip
+        }
       });
     } catch (error) {
       // 回滚事务

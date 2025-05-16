@@ -380,6 +380,11 @@ router.post('/pre-order', auth, async (req, res) => {
       return res.status(400).json({ message: '地址ID不能为空' });
     }
 
+    // 查询用户信息，检查是否为VIP
+    const User = require('../models/User');
+    const user = await User.findByPk(userId, { transaction: t });
+    const isVip = user && user.isVip && user.vipExpireDate && new Date(user.vipExpireDate) > new Date();
+
     // 查询地址信息
     const address = await Address.findOne({
       where: {
@@ -416,8 +421,20 @@ router.post('/pre-order', auth, async (req, res) => {
     // 生成订单号：时间戳 + 4位随机数
     const orderNo = `${Date.now()}${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
 
-    // 计算订单金额
-    const totalAmount = product.price * quantity;
+    // 根据用户身份和购买数量确定使用的价格
+    let unitPrice = product.price; // 默认使用普通价格
+
+    // VIP用户且商品设置了VIP价格，则使用VIP价格
+    if (isVip && product.vipPrice) {
+      unitPrice = product.vipPrice;
+    }
+    // 批发购买（数量达到阈值）且设置了批发价，则使用批发价
+    else if (quantity >= product.wholesaleThreshold && product.wholesalePrice) {
+      unitPrice = product.wholesalePrice;
+    }
+
+    // 计算订单总金额
+    const totalAmount = unitPrice * quantity;
 
     // 创建订单
     const order = await Order.create({
@@ -440,7 +457,7 @@ router.post('/pre-order', auth, async (req, res) => {
       productName: product.name,
       productImage: product.cover,
       quantity,
-      price: product.price
+      price: unitPrice // 使用确定的单价
     }, { transaction: t });
 
     // 减库存
@@ -464,8 +481,14 @@ router.post('/pre-order', auth, async (req, res) => {
       product: {
         id: product.id,
         name: product.name,
-        price: product.price,
+        price: unitPrice, // 返回实际使用的价格
+        originalPrice: product.price, // 返回原价，便于前端展示优惠信息
         cover: product.cover
+      },
+      priceInfo: {
+        isVip,
+        usedVipPrice: isVip && product.vipPrice ? true : false,
+        usedWholesalePrice: !isVip && quantity >= product.wholesaleThreshold && product.wholesalePrice ? true : false
       }
     });
   } catch (error) {
