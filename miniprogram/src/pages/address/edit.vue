@@ -24,27 +24,14 @@
         
         <nut-form-item label="所在地区">
           <view class="address-area-inputs">
-            <nut-input
-              v-model="addressForm.province"
-              placeholder="省"
-              clearable
-              :border="false"
-              class="area-input"
-            />
-            <nut-input
-              v-model="addressForm.city"
-              placeholder="市"
-              clearable
-              :border="false"
-              class="area-input"
-            />
-            <nut-input
-              v-model="addressForm.district"
-              placeholder="区/县"
-              clearable
-              :border="false"
-              class="area-input"
-            />
+            <picker mode="region" :value="region" @change="bindRegionChange">
+              <view class="picker">
+                <text v-if="addressForm.province" class="region-text">
+                  {{ addressForm.province }} {{ addressForm.city }} {{ addressForm.district }}
+                </text>
+                <text v-else class="region-placeholder">请选择所在地区</text>
+              </view>
+            </picker>
           </view>
         </nut-form-item>
         
@@ -60,7 +47,6 @@
             text-align="left"
           />
         </nut-form-item>
-        
         <nut-form-item>
           <view class="default-switch">
             <text>设为默认收货地址</text>
@@ -84,12 +70,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, inject } from 'vue';
+import { ref, reactive } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { addressApi } from '@/api/address';
-
-// 注入全局用户信息
-const userInfo = inject('userInfo');
 
 // 地址表单数据
 const addressForm = reactive({
@@ -102,6 +85,20 @@ const addressForm = reactive({
   detail: '',
   isDefault: false
 });
+
+// 地区选择器数据
+const region = ref(['广东省', '广州市', '海珠区']);
+
+// 地区选择器变化事件
+const bindRegionChange = (e) => {
+  console.log('地区选择：', e);
+  region.value = e.detail.value;
+  
+  // 更新表单数据
+  addressForm.province = e.detail.value[0];
+  addressForm.city = e.detail.value[1];
+  addressForm.district = e.detail.value[2];
+}
 
 // 页面加载时获取地址ID
 onLoad(async (options) => {
@@ -127,6 +124,11 @@ const fetchAddressDetail = async (id) => {
     if (res && res.data && res.data.id) {
       // 填充表单
       Object.assign(addressForm, res.data);
+      
+      // 更新地区选择器
+      if (addressForm.province && addressForm.city && addressForm.district) {
+        region.value = [addressForm.province, addressForm.city, addressForm.district];
+      }
     } else {
       uni.showToast({
         title: '地址不存在',
@@ -173,7 +175,7 @@ const saveAddress = async () => {
   
   if (!addressForm.province || !addressForm.city || !addressForm.district) {
     return uni.showToast({
-      title: '请输入完整的地区信息',
+      title: '请选择所在地区',
       icon: 'none'
     });
   }
@@ -257,6 +259,23 @@ const saveAddress = async () => {
   display: flex;
   width: 100%;
   gap: 10rpx;
+}
+
+.picker {
+  width: 100%;
+  height: 70rpx;
+  display: flex;
+  align-items: center;
+}
+
+.region-text {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.region-placeholder {
+  font-size: 28rpx;
+  color: #999;
 }
 
 .area-input {
