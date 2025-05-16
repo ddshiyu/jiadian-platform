@@ -416,7 +416,7 @@ router.post('/pay', auth, async (req, res) => {
     const params = {
       description: `购买商品: ${order.OrderItems[0]?.productName || '购物车商品'}等${order.OrderItems.length}件`,
       out_trade_no: order.orderNo,
-      notify_url: `${process.env.DOMAIN || process.env.WECHAT_SUCCESSCALLBACK || 'http://localhost:3000'}/products/notify`,
+      notify_url: `${process.env.WECHAT_SUCCESSCALLBACK}/products/notify`,
       amount: {
         total: Math.floor(order.totalAmount * 100), // 单位为分
       },

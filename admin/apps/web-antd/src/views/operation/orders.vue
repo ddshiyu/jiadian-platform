@@ -36,6 +36,7 @@ import {
   getOrderDetailApi,
   getOrderListApi,
   remarkOrderApi,
+  shipOrderApi,
 } from '#/api/core/operation';
 
 const { RangePicker } = DatePicker;
@@ -159,6 +160,33 @@ const remarkFormRules = {
 
 // 提交状态
 const submitLoading = ref(false);
+
+// 发货弹窗控制
+const shipVisible = ref(false);
+const shipForm = reactive({
+  orderId: 0,
+  trackingNumber: '',
+  trackingCompany: '',
+});
+const shipFormRef = ref<FormInstance | null>(null);
+const shipFormRules = {
+  trackingNumber: [
+    {
+      required: true,
+      message: '请输入快递单号',
+      trigger: 'blur',
+      type: 'string',
+    },
+  ] as RuleObject[],
+  trackingCompany: [
+    {
+      required: true,
+      message: '请输入快递公司',
+      trigger: 'blur',
+      type: 'string',
+    },
+  ] as RuleObject[],
+};
 
 // 获取订单列表数据
 const fetchData = async () => {
@@ -447,6 +475,44 @@ const confirmRemark = async () => {
   }
 };
 
+// 发货
+const handleShip = (record: any) => {
+  shipForm.orderId = record.id;
+  shipForm.trackingNumber = '';
+  shipForm.trackingCompany = '';
+  shipVisible.value = true;
+};
+
+// 取消发货
+const cancelShip = () => {
+  shipVisible.value = false;
+};
+
+// 确认发货
+const confirmShip = async () => {
+  if (!shipFormRef.value) return;
+
+  try {
+    await shipFormRef.value.validate();
+    submitLoading.value = true;
+
+    await shipOrderApi(
+      shipForm.orderId,
+      shipForm.trackingNumber,
+      shipForm.trackingCompany,
+    );
+
+    message.success('发货成功');
+    shipVisible.value = false;
+    fetchData();
+  } catch (error) {
+    console.error('发货失败:', error);
+    message.error('发货失败');
+  } finally {
+    submitLoading.value = false;
+  }
+};
+
 // 格式化日期
 const formatDate = (date: string) => {
   return date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '';
@@ -659,6 +725,11 @@ onMounted(() => {
                   <Button type="link" danger>取消订单</Button>
                 </Popconfirm>
               </template>
+              <template v-if="record.status === 'pending_delivery'">
+                <Button type="link" @click="() => handleShip(record)">
+                  发货
+                </Button>
+              </template>
               <Button type="link" @click="() => handleRemark(record)">
                 备注
               </Button>
@@ -802,6 +873,38 @@ onMounted(() => {
             v-model:value="remarkForm.remark"
             placeholder="请输入订单备注"
             :rows="4"
+          />
+        </FormItem>
+      </Form>
+    </Modal>
+
+    <!-- 发货弹窗 -->
+    <Modal
+      v-model:visible="shipVisible"
+      title="订单发货"
+      @ok="confirmShip"
+      :confirm-loading="submitLoading"
+      @cancel="cancelShip"
+      ok-text="确定"
+      cancel-text="取消"
+    >
+      <Form
+        ref="shipFormRef"
+        :model="shipForm"
+        :rules="shipFormRules"
+        :label-col="{ span: 4 }"
+        :wrapper-col="{ span: 18 }"
+      >
+        <FormItem label="快递公司" name="trackingCompany">
+          <Input
+            v-model:value="shipForm.trackingCompany"
+            placeholder="请输入快递公司名称"
+          />
+        </FormItem>
+        <FormItem label="快递单号" name="trackingNumber">
+          <Input
+            v-model:value="shipForm.trackingNumber"
+            placeholder="请输入快递单号"
           />
         </FormItem>
       </Form>

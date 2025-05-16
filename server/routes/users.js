@@ -396,7 +396,7 @@ router.post('/join-vip', auth, async (req, res) => {
     const params = {
       description: `开通年度会员`,
       out_trade_no: orderNo,
-      notify_url: `${process.env.DOMAIN || process.env.WECHAT_SUCCESSCALLBACK || 'http://localhost:3000'}/user/vip-notify`,
+      notify_url: `${process.env.WECHAT_SUCCESSCALLBACK}/user/vip-notify`,
       amount: {
         total: Math.floor(amount * 100), // 单位为分
       },

@@ -515,7 +515,7 @@ router.post('/buy', auth, async (req, res) => {
         `购买商品: ${order.OrderItems[0]?.productName || '未知商品'}` :
         `订单支付: ${order.orderNo}`,
       out_trade_no: order.orderNo,
-      notify_url: `${process.env.DOMAIN || process.env.WECHAT_SUCCESSCALLBACK || 'http://localhost:3000'}/products/notify`,
+      notify_url: `${process.env.WECHAT_SUCCESSCALLBACK || 'http://localhost:3000'}/products/notify`,
       amount: {
         total: Math.floor(order.totalAmount * 100), // 单位为分
       },
@@ -552,7 +552,7 @@ router.post('/notify', async (req, res) => {
     const nonce = req.headers['wechatpay-nonce'];
     const serial = req.headers['wechatpay-serial'];
     const body = req.body;
-
+    console.log(body)
     // 验证签名 - 根据微信支付文档实现
     // const isValid = pay.verifySign(timestamp, nonce, body, signature, serial);
     // if (!isValid) {
