@@ -30,7 +30,25 @@
               ></nut-ellipsis>
               <view class="product-spec">{{ item.spec || '默认' }}</view>
               <view class="product-price-box">
-                <nut-price :price="item.Product.price" size="normal" :thousands="true"></nut-price>
+                <!-- 价格显示区域 -->
+                <view class="price-area">
+                  <view class="current-price">
+                    <nut-price :price="item.actualPrice || item.Product.price" size="normal" :thousands="true"></nut-price>
+                    <!-- 会员价标识 -->
+                    <view v-if="item.priceType === 'vip'" class="price-tag vip-tag">会员价</view>
+                    <!-- 批发价标识 -->
+                    <view v-if="item.priceType === 'wholesale'" class="price-tag wholesale-tag">批发价</view>
+                  </view>
+                  <!-- 原价显示（如果有折扣） -->
+                  <view v-if="(item.actualPrice || item.Product.price) < item.Product.price" class="original-price">
+                    <nut-price
+                      :price="item.Product.price"
+                      size="small"
+                      :thousands="true"
+                      class="line-through"
+                    ></nut-price>
+                  </view>
+                </view>
                 <nut-input-number
                   v-model="item.quantity"
                   :min="1"
@@ -86,9 +104,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, inject } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { cartApi } from '../../api/cart';
+import VipTag from '@/components/VipTag.vue';
+
+// 从App.vue注入用户信息
+const userInfo = inject('userInfo');
 
 // 购物车列表
 const cartList = ref([]);
@@ -98,13 +120,8 @@ const loading = ref(false);
 const swipeRef = ref(null);
 
 // 是否全部选中
-const isAllSelected = computed({
-  get: () => {
-    return cartList.value.length > 0 && cartList.value.every(item => item.selected);
-  },
-  set: (val) => {
-    // 仅在这里创建一个计算属性，实际修改在selectAllItems方法中
-  }
+const isAllSelected = computed(() => {
+  return cartList.value.length > 0 && cartList.value.every(item => item.selected);
 });
 
 // 选中的商品数量
@@ -117,7 +134,9 @@ const totalPrice = computed(() => {
   return cartList.value
     .filter(item => item.selected)
     .reduce((total, item) => {
-      return total + item.Product.price * item.quantity;
+      // 使用actualPrice字段（如果存在），否则使用Product.price
+      const price = item.actualPrice || item.Product.price;
+      return total + price * item.quantity;
     }, 0)
     .toFixed(2);
 });
@@ -200,6 +219,14 @@ const updateItemQuantity = async (index, value) => {
     if (res && res.code === 0) {
       // 更新成功
       item.quantity = quantity;
+      
+      // 如果返回了新的价格信息，更新它
+      if (res.data && res.data.actualPrice) {
+        item.actualPrice = res.data.actualPrice;
+      }
+      if (res.data && res.data.priceType) {
+        item.priceType = res.data.priceType;
+      }
     } else {
       // 更新失败，重新加载数据
       loadCartData();
@@ -397,6 +424,42 @@ const navigateToHome = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.price-area {
+  display: flex;
+  flex-direction: column;
+}
+
+.current-price {
+  display: flex;
+  align-items: center;
+}
+
+.price-tag {
+  font-size: 20rpx;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  margin-left: 10rpx;
+}
+
+.vip-tag {
+  background-color: #FFD700;
+  color: #8B4513;
+}
+
+.wholesale-tag {
+  background-color: #87CEEB;
+  color: #0000CD;
+}
+
+.original-price {
+  margin-top: 5rpx;
+}
+
+.line-through {
+  text-decoration: line-through;
+  color: #999;
 }
 
 .delete-button {

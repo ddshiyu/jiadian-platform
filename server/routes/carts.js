@@ -16,6 +16,11 @@ router.get('/', auth, async (req, res) => {
 
     const userId = req.user.id;
 
+    // 查询用户信息，检查是否为VIP
+    const User = require('../models/User');
+    const user = await User.findByPk(userId);
+    const isVip = user && user.isVip && user.vipExpireDate && new Date(user.vipExpireDate) > new Date();
+
     // 查询购物车总数
     const total = await Cart.count({
       where: { userId },
@@ -34,7 +39,7 @@ router.get('/', auth, async (req, res) => {
       include: [
         {
           model: Product,
-          attributes: ['id', 'name', 'price', 'originalPrice', 'cover', 'stock', 'status'],
+          attributes: ['id', 'name', 'price', 'originalPrice', 'cover', 'stock', 'status', 'vipPrice', 'wholesalePrice', 'wholesaleThreshold'],
           where: { status: 'on_sale' },
           required: true
         }
@@ -43,13 +48,41 @@ router.get('/', auth, async (req, res) => {
       offset: offset
     });
 
+    // 处理购物车数据，为每个商品计算实际价格
+    const cartsWithActualPrice = carts.map(cart => {
+      const cartData = cart.toJSON();
+      const product = cartData.Product;
+
+      // 默认使用普通价格
+      let actualPrice = product.price;
+      let priceType = 'normal';
+
+      // VIP用户且商品设置了VIP价格，则使用VIP价格
+      if (isVip && product.vipPrice) {
+        actualPrice = product.vipPrice;
+        priceType = 'vip';
+      }
+      // 批发购买（数量达到阈值）且设置了批发价，则使用批发价
+      else if (cart.quantity >= product.wholesaleThreshold && product.wholesalePrice) {
+        actualPrice = product.wholesalePrice;
+        priceType = 'wholesale';
+      }
+
+      return {
+        ...cartData,
+        actualPrice,
+        priceType,
+        isVip
+      };
+    });
+
     // 计算总价
-    const totalPrice = carts.reduce((sum, cart) => {
-      return sum + (cart.Product ? cart.Product.price * cart.quantity : 0);
+    const totalPrice = cartsWithActualPrice.reduce((sum, cart) => {
+      return sum + (cart.actualPrice * cart.quantity);
     }, 0);
 
     // 使用分页中间件返回分页结果
-    res.paginate(carts, {
+    res.paginate(cartsWithActualPrice, {
       total,
       page,
       size,
@@ -58,7 +91,8 @@ router.get('/', auth, async (req, res) => {
         totalPrice: parseFloat(totalPrice.toFixed(2)),
         current: page,
         pageSize: size,
-        totalPages: Math.ceil(total / size)
+        totalPages: Math.ceil(total / size),
+        isVip
       }
     });
   } catch (error) {
@@ -76,6 +110,11 @@ router.post('/', auth, async (req, res) => {
     if (!productId) {
       return res.status(400).json({ message: '商品ID不能为空' });
     }
+
+    // 查询用户信息，检查是否为VIP
+    const User = require('../models/User');
+    const user = await User.findByPk(userId);
+    const isVip = user && user.isVip && user.vipExpireDate && new Date(user.vipExpireDate) > new Date();
 
     // 检查商品是否存在且在售
     const product = await Product.findOne({
@@ -119,7 +158,44 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
-    res.status(200).json(cart);
+    // 计算实际价格
+    let actualPrice = product.price;
+    let priceType = 'normal';
+
+    // VIP用户且商品设置了VIP价格，则使用VIP价格
+    if (isVip && product.vipPrice) {
+      actualPrice = product.vipPrice;
+      priceType = 'vip';
+    }
+    // 批发购买（数量达到阈值）且设置了批发价，则使用批发价
+    else if (cart.quantity >= product.wholesaleThreshold && product.wholesalePrice) {
+      actualPrice = product.wholesalePrice;
+      priceType = 'wholesale';
+    }
+
+    // 返回购物车项信息和价格信息
+    const cartWithProduct = {
+      ...cart.toJSON(),
+      product: {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        vipPrice: product.vipPrice,
+        wholesalePrice: product.wholesalePrice,
+        wholesaleThreshold: product.wholesaleThreshold,
+        cover: product.cover,
+        stock: product.stock
+      },
+      priceInfo: {
+        actualPrice,
+        priceType,
+        isVip,
+        discount: parseFloat((product.price - actualPrice).toFixed(2)),
+        discountPercentage: parseFloat(((product.price - actualPrice) / product.price * 100).toFixed(2))
+      }
+    };
+
+    res.status(200).json(cartWithProduct);
   } catch (error) {
     console.error('添加购物车失败:', error);
     res.status(400).json({ message: '添加购物车失败' });
@@ -131,6 +207,11 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { quantity, selected } = req.body;
+
+    // 查询用户信息，检查是否为VIP
+    const User = require('../models/User');
+    const user = await User.findByPk(userId);
+    const isVip = user && user.isVip && user.vipExpireDate && new Date(user.vipExpireDate) > new Date();
 
     const cart = await Cart.findOne({
       where: {
@@ -166,7 +247,40 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     await cart.save();
-    res.status(200).json(cart);
+
+    const product = cart.Product;
+
+    // 计算实际价格
+    let actualPrice = product.price;
+    let priceType = 'normal';
+
+    // VIP用户且商品设置了VIP价格，则使用VIP价格
+    if (isVip && product.vipPrice) {
+      actualPrice = product.vipPrice;
+      priceType = 'vip';
+    }
+    // 批发购买（数量达到阈值）且设置了批发价，则使用批发价
+    else if (cart.quantity >= product.wholesaleThreshold && product.wholesalePrice) {
+      actualPrice = product.wholesalePrice;
+      priceType = 'wholesale';
+    }
+
+    // 返回购物车项信息和价格信息
+    const cartWithProduct = {
+      ...cart.toJSON(),
+      actualPrice,
+      priceType,
+      priceInfo: {
+        isVip,
+        actualPrice,
+        priceType,
+        originalPrice: product.price,
+        discount: parseFloat((product.price - actualPrice).toFixed(2)),
+        discountPercentage: parseFloat(((product.price - actualPrice) / product.price * 100).toFixed(2))
+      }
+    };
+
+    res.status(200).json(cartWithProduct);
   } catch (error) {
     console.error('更新购物车失败:', error);
     res.status(400).json({ message: '更新购物车失败' });
@@ -509,6 +623,11 @@ router.get('/selected', auth, async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // 查询用户信息，检查是否为VIP
+    const User = require('../models/User');
+    const user = await User.findByPk(userId);
+    const isVip = user && user.isVip && user.vipExpireDate && new Date(user.vipExpireDate) > new Date();
+
     // 查询购物车中选中的商品
     const cartItems = await Cart.findAll({
       where: {
@@ -526,7 +645,8 @@ router.get('/selected', auth, async (req, res) => {
       return res.status(200).json({
         totalCount: 0,
         totalPrice: 0,
-        items: []
+        items: [],
+        isVip
       });
     }
 
@@ -536,25 +656,47 @@ router.get('/selected', auth, async (req, res) => {
     const items = [];
 
     cartItems.forEach(item => {
+      const product = item.Product;
+
+      // 默认使用普通价格
+      let actualPrice = product.price;
+      let priceType = 'normal';
+
+      // VIP用户且商品设置了VIP价格，则使用VIP价格
+      if (isVip && product.vipPrice) {
+        actualPrice = product.vipPrice;
+        priceType = 'vip';
+      }
+      // 批发购买（数量达到阈值）且设置了批发价，则使用批发价
+      else if (item.quantity >= product.wholesaleThreshold && product.wholesalePrice) {
+        actualPrice = product.wholesalePrice;
+        priceType = 'wholesale';
+      }
+
       totalCount += item.quantity;
-      totalPrice += item.Product.price * item.quantity;
+      totalPrice += actualPrice * item.quantity;
 
       items.push({
         id: item.id,
         productId: item.productId,
-        productName: item.Product.name,
-        productImage: item.Product.cover,
-        price: item.Product.price,
-        originalPrice: item.Product.originalPrice,
+        productName: product.name,
+        productImage: product.cover,
+        price: product.price,
+        actualPrice,
+        priceType,
+        originalPrice: product.originalPrice,
+        vipPrice: product.vipPrice,
+        wholesalePrice: product.wholesalePrice,
         quantity: item.quantity,
-        stock: item.Product.stock
+        stock: product.stock
       });
     });
 
     res.status(200).json({
       totalCount,
       totalPrice: parseFloat(totalPrice.toFixed(2)),
-      items
+      items,
+      isVip
     });
   } catch (error) {
     console.error('获取购物车统计信息失败:', error);
