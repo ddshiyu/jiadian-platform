@@ -108,7 +108,26 @@ router.post('/', auth, async (req, res) => {
     const { productId, quantity = 1 } = req.body;
 
     if (!productId) {
-      return res.status(400).json({ message: '商品ID不能为空' });
+      return res.status(400).json({
+        message: '商品ID不能为空',
+        code: 'MISSING_PRODUCT_ID'
+      });
+    }
+
+    // 验证商品ID是否为有效数字
+    if (isNaN(parseInt(productId))) {
+      return res.status(400).json({
+        message: '商品ID无效',
+        code: 'INVALID_PRODUCT_ID'
+      });
+    }
+
+    // 验证数量是否为有效数字
+    if (isNaN(parseInt(quantity)) || parseInt(quantity) <= 0) {
+      return res.status(400).json({
+        message: '商品数量必须大于0',
+        code: 'INVALID_QUANTITY'
+      });
     }
 
     // 查询用户信息，检查是否为VIP
@@ -125,12 +144,19 @@ router.post('/', auth, async (req, res) => {
     });
 
     if (!product) {
-      return res.status(400).json({ message: '商品不存在或已下架' });
+      return res.status(404).json({
+        message: '商品不存在或已下架',
+        code: 'PRODUCT_NOT_FOUND'
+      });
     }
 
     // 检查库存
     if (product.stock < quantity) {
-      return res.status(400).json({ message: '商品库存不足' });
+      return res.status(400).json({
+        message: `商品库存不足，当前库存:${product.stock}`,
+        code: 'INSUFFICIENT_STOCK',
+        availableStock: product.stock
+      });
     }
 
     // 检查购物车中是否已存在该商品
@@ -141,15 +167,27 @@ router.post('/', auth, async (req, res) => {
       }
     });
 
+    let isNewItem = false;
+    let previousQuantity = 0;
+
     if (cart) {
+      // 记录之前的数量
+      previousQuantity = cart.quantity;
+
       // 更新数量
       cart.quantity += parseInt(quantity);
       if (cart.quantity > product.stock) {
-        cart.quantity = product.stock;
+        return res.status(400).json({
+          message: `添加后数量超过库存，当前库存:${product.stock}，购物车已有:${previousQuantity}`,
+          code: 'EXCEED_STOCK',
+          availableStock: product.stock,
+          cartQuantity: previousQuantity
+        });
       }
       await cart.save();
     } else {
       // 创建新购物车项
+      isNewItem = true;
       cart = await Cart.create({
         userId,
         productId,
@@ -192,13 +230,57 @@ router.post('/', auth, async (req, res) => {
         isVip,
         discount: parseFloat((product.price - actualPrice).toFixed(2)),
         discountPercentage: parseFloat(((product.price - actualPrice) / product.price * 100).toFixed(2))
-      }
+      },
+      isNewItem,
+      addedQuantity: parseInt(quantity),
+      previousQuantity
     };
 
-    res.status(200).json(cartWithProduct);
+    res.status(isNewItem ? 201 : 200).json(cartWithProduct);
   } catch (error) {
     console.error('添加购物车失败:', error);
-    res.status(400).json({ message: '添加购物车失败' });
+    res.status(500).json({
+      message: '添加购物车失败，请稍后重试',
+      code: 'ADD_CART_FAILED'
+    });
+  }
+});
+
+// 全选/取消全选 - 必须在/:id路由之前定义
+router.put('/selectAll', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { selected = true } = req.body;
+
+    // 检查用户购物车是否有商品
+    const cartCount = await Cart.count({ where: { userId } });
+
+    if (cartCount === 0) {
+      return res.status(200).json({
+        message: '购物车为空，无需操作',
+        code: 'CART_EMPTY',
+        affected: 0
+      });
+    }
+
+    // 更新所有属于该用户的购物车项
+    const result = await Cart.update(
+      { selected },
+      { where: { userId } }
+    );
+
+    // 返回更新结果
+    res.status(200).json({
+      message: selected ? '全选成功' : '取消全选成功',
+      code: selected ? 'SELECT_ALL_SUCCESS' : 'DESELECT_ALL_SUCCESS',
+      affected: result[0] // 返回受影响的行数
+    });
+  } catch (error) {
+    console.error('全选/取消全选操作失败:', error);
+    res.status(500).json({
+      message: '操作购物车失败，请稍后重试',
+      code: 'SELECT_ALL_FAILED'
+    });
   }
 });
 
@@ -206,6 +288,7 @@ router.post('/', auth, async (req, res) => {
 router.put('/:id', auth, async (req, res) => {
   try {
     const userId = req.user.id;
+    const cartId = req.params.id;
     const { quantity, selected } = req.body;
 
     // 查询用户信息，检查是否为VIP
@@ -213,16 +296,39 @@ router.put('/:id', auth, async (req, res) => {
     const user = await User.findByPk(userId);
     const isVip = user && user.isVip && user.vipExpireDate && new Date(user.vipExpireDate) > new Date();
 
+    // 验证购物车ID是否为有效数字
+    if (isNaN(parseInt(cartId))) {
+      return res.status(400).json({
+        message: '购物车ID无效',
+        code: 'INVALID_CART_ID'
+      });
+    }
+
+    // 查询购物车项
     const cart = await Cart.findOne({
       where: {
-        id: req.params.id,
+        id: cartId,
         userId
       },
       include: [Product]
     });
 
+    // 如果找不到购物车项，返回具体错误信息
     if (!cart) {
-      return res.status(400).json({ message: '购物车商品不存在' });
+      console.error(`购物车项不存在: userId=${userId}, cartId=${cartId}`);
+      return res.status(404).json({
+        message: '购物车商品不存在或已被删除',
+        code: 'CART_ITEM_NOT_FOUND'
+      });
+    }
+
+    // 检查商品是否存在
+    if (!cart.Product) {
+      await cart.destroy(); // 如果对应商品不存在，删除该购物车项
+      return res.status(404).json({
+        message: '商品不存在或已下架，已从购物车移除',
+        code: 'PRODUCT_NOT_FOUND'
+      });
     }
 
     // 更新数量
@@ -230,12 +336,19 @@ router.put('/:id', auth, async (req, res) => {
       if (quantity <= 0) {
         // 数量为0，删除购物车项
         await cart.destroy();
-        return res.status(200).json({ message: '商品已从购物车移除' });
+        return res.status(200).json({
+          message: '商品已从购物车移除',
+          code: 'CART_ITEM_REMOVED'
+        });
       }
 
       // 检查库存
       if (cart.Product && quantity > cart.Product.stock) {
-        return res.status(400).json({ message: '商品库存不足' });
+        return res.status(400).json({
+          message: `商品库存不足，当前库存:${cart.Product.stock}`,
+          code: 'INSUFFICIENT_STOCK',
+          availableStock: cart.Product.stock
+        });
       }
 
       cart.quantity = parseInt(quantity);
@@ -283,7 +396,10 @@ router.put('/:id', auth, async (req, res) => {
     res.status(200).json(cartWithProduct);
   } catch (error) {
     console.error('更新购物车失败:', error);
-    res.status(400).json({ message: '更新购物车失败' });
+    res.status(500).json({
+      message: '更新购物车失败，请稍后重试',
+      code: 'UPDATE_CART_FAILED'
+    });
   }
 });
 
@@ -291,23 +407,45 @@ router.put('/:id', auth, async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
   try {
     const userId = req.user.id;
+    const cartId = req.params.id;
 
+    // 验证购物车ID是否为有效数字
+    if (isNaN(parseInt(cartId))) {
+      return res.status(400).json({
+        message: '购物车ID无效',
+        code: 'INVALID_CART_ID'
+      });
+    }
+
+    // 查询购物车项
     const cart = await Cart.findOne({
       where: {
-        id: req.params.id,
+        id: cartId,
         userId
       }
     });
 
+    // 如果找不到购物车项，返回具体错误信息
     if (!cart) {
-      return res.status(400).json({ message: '购物车商品不存在' });
+      console.error(`删除操作 - 购物车项不存在: userId=${userId}, cartId=${cartId}`);
+      return res.status(404).json({
+        message: '购物车商品不存在或已被删除',
+        code: 'CART_ITEM_NOT_FOUND'
+      });
     }
 
     await cart.destroy();
-    res.status(200).json({ message: '删除成功' });
+    res.status(200).json({
+      message: '删除成功',
+      code: 'CART_ITEM_DELETED',
+      cartId
+    });
   } catch (error) {
     console.error('删除购物车失败:', error);
-    res.status(400).json({ message: '删除购物车失败' });
+    res.status(500).json({
+      message: '删除购物车失败，请稍后重试',
+      code: 'DELETE_CART_FAILED'
+    });
   }
 });
 
@@ -324,24 +462,6 @@ router.delete('/', auth, async (req, res) => {
   } catch (error) {
     console.error('清空购物车失败:', error);
     res.status(400).json({ message: '清空购物车失败' });
-  }
-});
-
-// 全选/取消全选
-router.put('/selectAll', auth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { selected = true } = req.body;
-
-    await Cart.update(
-      { selected },
-      { where: { userId } }
-    );
-
-    res.status(200).json({ message: selected ? '全选成功' : '取消全选成功' });
-  } catch (error) {
-    console.error('操作购物车失败:', error);
-    res.status(400).json({ message: '操作购物车失败' });
   }
 });
 
