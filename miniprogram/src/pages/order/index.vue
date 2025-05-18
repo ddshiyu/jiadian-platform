@@ -223,7 +223,7 @@ const formatOrderData = (orders) => {
       return {
         id: item.productId,
         name: item.productName,
-        cover: item.productImage,
+        cover: item?.Product?.cover,
         price: item.price,
         count: item.quantity,
         specs: item.specs || ''
