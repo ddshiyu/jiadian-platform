@@ -153,6 +153,131 @@ router.get('/', async (req, res) => {
   }
 });
 
+// 获取退款订单列表
+router.get('/refunds', async (req, res) => {
+  try {
+    // 使用中间件提供的分页参数获取方法
+    const { page, size, offset } = req.getPaginationParams({
+      pageName: 'pageNum',
+      sizeName: 'pageSize'
+    });
+
+    // 构建基础查询条件 - 只查询退款相关的订单
+    const where = {
+      status: {
+        [Op.in]: ['refund_pending', 'refund_approved', 'refund_rejected']
+      }
+    };
+
+    // 根据查询参数添加过滤条件
+    const { orderNo, userName, status } = req.query;
+
+    // 订单号查询
+    if (orderNo && orderNo.trim()) {
+      where.orderNo = { [Op.like]: `%${orderNo.trim()}%` };
+    }
+
+    // 用户名查询
+    let userInclude = {
+      model: User,
+      attributes: ['id', 'nickname', 'phone'],
+      required: false
+    };
+
+    if (userName && userName.trim()) {
+      userInclude.required = true;
+      userInclude.where = {
+        nickname: { [Op.like]: `%${userName.trim()}%` }
+      };
+    }
+
+    // 退款状态查询
+    if (status && ['refund_pending', 'refund_approved', 'refund_rejected'].includes(status)) {
+      where.status = status;
+    }
+
+    // 获取订单列表
+    const orders = await Order.findAll({
+      where,
+      include: [
+        userInclude,
+        {
+          model: OrderItem,
+          include: [
+            {
+              model: Product,
+              attributes: ['id', 'name', 'cover', 'price']
+            }
+          ]
+        }
+      ],
+      order: [['refundRequestTime', 'DESC']],
+      limit: size,
+      offset: offset
+    });
+
+    // 获取总数
+    const total = await Order.count({
+      where,
+      include: [userInclude]
+    });
+
+    // 构造前端需要的数据格式
+    const formattedList = orders.map(order => {
+      const orderData = order.toJSON();
+
+      return {
+        id: orderData.id,
+        orderNo: orderData.orderNo,
+        userId: orderData.userId,
+        totalAmount: orderData.totalAmount,
+        status: orderData.status,
+        paymentStatus: orderData.paymentStatus,
+        refundReason: orderData.refundReason,
+        refundRequestTime: orderData.refundRequestTime,
+        refundApprovalTime: orderData.refundApprovalTime,
+        refundRemark: orderData.refundRemark,
+        consignee: orderData.consignee,
+        phone: orderData.phone,
+        createdAt: orderData.createdAt,
+        user: orderData.User ? {
+          id: orderData.User.id,
+          nickname: orderData.User.nickname,
+          phone: orderData.User.phone
+        } : null,
+        items: orderData.OrderItems ? orderData.OrderItems.map(item => ({
+          id: item.id,
+          productId: item.productId,
+          productName: item.Product ? item.Product.name : (item.productName || '未知商品'),
+          price: item.price,
+          quantity: item.quantity,
+          totalAmount: item.price * item.quantity,
+          productCover: item.Product ? item.Product.cover : item.productCover
+        })) : []
+      };
+    });
+
+    // 使用分页中间件的paginate方法返回分页结果
+    res.paginate(formattedList, {
+      total,
+      page,
+      size,
+      removeDefaults: true,
+      custom: {
+        pageNum: page,
+        pageSize: size,
+        totalPages: Math.ceil(total / size)
+      }
+    });
+  } catch (error) {
+    console.error('获取退款订单列表失败:', error.message, error.stack);
+    res.status(500).json({
+      message: '获取退款订单列表失败',
+      error: error.message
+    });
+  }
+});
+
 // 获取订单详情
 router.get('/:id', async (req, res) => {
   try {
@@ -229,7 +354,7 @@ router.put('/:id/status', async (req, res) => {
   try {
     const { status, remark } = req.body;
 
-    if (!['pending_payment', 'pending_delivery', 'delivered', 'completed', 'cancelled'].includes(status)) {
+    if (!['pending_payment', 'pending_delivery', 'delivered', 'completed', 'cancelled', 'refund_pending', 'refund_approved', 'refund_rejected'].includes(status)) {
       return res.status(400).json({ message: '无效的订单状态' });
     }
 
@@ -297,6 +422,15 @@ router.put('/:id/status', async (req, res) => {
         break;
       case 'cancelled':
         message = '订单已取消';
+        break;
+      case 'refund_pending':
+        message = '订单已标记为退款处理中';
+        break;
+      case 'refund_approved':
+        message = '订单退款已通过';
+        break;
+      case 'refund_rejected':
+        message = '订单退款已拒绝';
         break;
       default:
         message = '订单状态已更新';
@@ -390,6 +524,90 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('删除订单失败:', error.message, error.stack);
     res.status(400).json({ message: '删除订单失败', error: error.message });
+  }
+});
+
+// 处理退款申请
+router.put('/:id/refund', async (req, res) => {
+  // 开启事务
+  const t = await sequelize.transaction();
+
+  try {
+    const { status, remark } = req.body;
+
+    if (!status || !['approved', 'rejected'].includes(status)) {
+      await t.rollback();
+      return res.status(400).json({ message: '请提供有效的处理结果' });
+    }
+
+    const order = await Order.findOne({
+      where: {
+        id: req.params.id,
+        status: 'refund_pending'
+      },
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'nickname', 'phone']
+        }
+      ],
+      transaction: t
+    });
+
+    if (!order) {
+      await t.rollback();
+      return res.status(400).json({ message: '订单不存在或状态不正确' });
+    }
+
+    if (status === 'approved') {
+      // 退款通过
+      order.status = 'refund_approved';
+      order.paymentStatus = 'refunded';
+      order.refundApprovalTime = new Date();
+      order.refundRemark = remark || '退款申请已通过';
+
+      // 恢复库存和销量
+      const orderItems = await OrderItem.findAll({
+        where: { orderId: order.id },
+        transaction: t
+      });
+
+      for (const item of orderItems) {
+        const product = await Product.findByPk(item.productId, { transaction: t });
+        if (product) {
+          product.stock += item.quantity;
+          product.sales -= item.quantity;
+          await product.save({ transaction: t });
+        }
+      }
+    } else {
+      // 退款拒绝
+      order.status = 'refund_rejected';
+      order.refundApprovalTime = new Date();
+      order.refundRemark = remark || '退款申请已拒绝';
+    }
+
+    await order.save({ transaction: t });
+
+    // 提交事务
+    await t.commit();
+
+    res.status(200).json({
+      message: status === 'approved' ? '退款已通过' : '退款已拒绝',
+      order: {
+        id: order.id,
+        orderNo: order.orderNo,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        refundApprovalTime: order.refundApprovalTime,
+        refundRemark: order.refundRemark
+      }
+    });
+  } catch (error) {
+    // 回滚事务
+    await t.rollback();
+    console.error('处理退款失败:', error.message, error.stack);
+    res.status(400).json({ message: '处理退款失败', error: error.message });
   }
 });
 

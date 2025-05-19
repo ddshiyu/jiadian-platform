@@ -17,6 +17,11 @@ interface OrderData {
   [key: string]: any;
 }
 
+interface RefundData {
+  reason: string;
+  [key: string]: any;
+}
+
 // 订单相关接口
 export const orderApi = {
   // 获取订单列表
@@ -52,5 +57,10 @@ export const orderApi = {
   // 获取订单统计信息
   getStats: () => {
     return http.get('/orders/stats')
+  },
+  
+  // 申请退款
+  applyRefund: (id: string, data: RefundData) => {
+    return http.post(`/orders/${id}/refund`, data)
   }
 } 

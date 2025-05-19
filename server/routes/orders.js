@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { Order, OrderItem, Product, User, sequelize, Commission } = require('../models');
+const { Order, OrderItem, Product, User, Commission } = require('../models');
+const sequelize = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
 // 获取用户订单列表
@@ -511,4 +512,135 @@ router.get('/:id', async (req, res) => {
     res.status(400).json({ message: '获取订单详情失败' });
   }
 });
+
+// 申请退款
+router.post('/:id/refund', async (req, res) => {
+  // 开启事务
+  const t = await sequelize.transaction();
+
+  try {
+    const userId = req.user.id;
+    const { reason } = req.body;
+
+    if (!reason) {
+      await t.rollback();
+      return res.status(400).json({ message: '请提供退款原因' });
+    }
+
+    const order = await Order.findOne({
+      where: {
+        id: req.params.id,
+        userId
+      },
+      transaction: t
+    });
+
+    if (!order) {
+      await t.rollback();
+      return res.status(400).json({ message: '订单不存在' });
+    }
+
+    // 只有已支付且状态为待发货或已发货的订单可以申请退款
+    if (order.paymentStatus !== 'paid') {
+      await t.rollback();
+      return res.status(400).json({ message: '订单未支付，无法申请退款' });
+    }
+
+    if (!['pending_delivery', 'delivered'].includes(order.status)) {
+      await t.rollback();
+      return res.status(400).json({ message: '当前订单状态不可申请退款' });
+    }
+
+    // 更新订单状态
+    order.status = 'refund_pending';
+    order.refundReason = reason;
+    order.refundRequestTime = new Date();
+    await order.save({ transaction: t });
+
+    // 提交事务
+    await t.commit();
+
+    res.status(200).json({ message: '退款申请已提交', order });
+  } catch (error) {
+    // 回滚事务
+    await t.rollback();
+    console.error('申请退款失败:', error);
+    res.status(400).json({ message: '申请退款失败' });
+  }
+});
+
+// 管理员处理退款
+router.put('/:id/refund', async (req, res) => {
+  // 开启事务
+  const t = await sequelize.transaction();
+
+  try {
+    // 判断用户是否为管理员
+    if (req.user.role !== 'admin') {
+      await t.rollback();
+      return res.status(403).json({ message: '没有权限' });
+    }
+
+    const { status, remark } = req.body;
+
+    if (!status || !['approved', 'rejected'].includes(status)) {
+      await t.rollback();
+      return res.status(400).json({ message: '请提供有效的处理结果' });
+    }
+
+    const order = await Order.findOne({
+      where: {
+        id: req.params.id,
+        status: 'refund_pending'
+      },
+      transaction: t
+    });
+
+    if (!order) {
+      await t.rollback();
+      return res.status(400).json({ message: '订单不存在或状态不正确' });
+    }
+
+    if (status === 'approved') {
+      // 退款通过
+      order.status = 'refund_approved';
+      order.paymentStatus = 'refunded';
+      order.refundApprovalTime = new Date();
+      order.refundRemark = remark || '退款申请已通过';
+
+      // 恢复库存和销量
+      const orderItems = await OrderItem.findAll({
+        where: { orderId: order.id },
+        transaction: t
+      });
+
+      for (const item of orderItems) {
+        const product = await Product.findByPk(item.productId, { transaction: t });
+        if (product) {
+          product.stock += item.quantity;
+          product.sales -= item.quantity;
+          await product.save({ transaction: t });
+        }
+      }
+    } else {
+      // 退款拒绝
+      order.status = 'refund_rejected';
+      order.refundApprovalTime = new Date();
+      order.refundRemark = remark || '退款申请已拒绝';
+    }
+
+    await order.save({ transaction: t });
+
+    // 提交事务
+    await t.commit();
+
+    res.status(200).json({ message: status === 'approved' ? '退款已通过' : '退款已拒绝', order });
+  } catch (error) {
+    // 回滚事务
+    await t.rollback();
+    console.error('处理退款失败:', error);
+    res.status(400).json({ message: '处理退款失败' });
+  }
+});
+
 module.exports = router;

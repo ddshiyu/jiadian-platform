@@ -252,13 +252,20 @@ export interface Order {
     | 'completed'
     | 'delivered'
     | 'pending_delivery'
-    | 'pending_payment';
+    | 'pending_payment'
+    | 'refund_approved'
+    | 'refund_pending'
+    | 'refund_rejected';
   paymentStatus: 'paid' | 'refunded' | 'unpaid';
   paymentMethod?: string;
   paymentTime?: string;
   deliveryTime?: string;
   completionTime?: string;
   cancelTime?: string;
+  refundRequestTime?: string;
+  refundApprovalTime?: string;
+  refundReason?: string;
+  refundRemark?: string;
   remark?: string;
   address?: string;
   consignee?: string;
@@ -350,6 +357,34 @@ export function remarkOrderApi(id: number, remark: string) {
  */
 export function cancelOrderApi(id: number, reason: string) {
   return requestClient.put(`/admin/orders/${id}/cancel`, { reason });
+}
+
+/**
+ * 获取退款订单列表
+ * @param params 查询参数
+ */
+export function getRefundOrderListApi(params: OrderListParams) {
+  return requestClient.get<OrderListResult>('/admin/orders/refunds', {
+    params,
+  });
+}
+
+/**
+ * 处理退款申请
+ * @param id 订单ID
+ * @param status 处理结果: 'approved' 通过, 'rejected' 拒绝
+ * @param remark 处理备注
+ */
+export function handleRefundApi(
+  id: number,
+  status: 'approved' | 'rejected',
+  remark?: string,
+) {
+  const data: { remark?: string; status: string } = { status };
+  if (remark) {
+    data.remark = remark;
+  }
+  return requestClient.put(`/admin/orders/${id}/refund`, data);
 }
 
 /**

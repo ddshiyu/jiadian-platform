@@ -25,6 +25,8 @@ import {
   SelectOption,
   Space,
   Table,
+  TabPane,
+  Tabs,
   Tag,
   Textarea,
   Tooltip,
@@ -35,6 +37,8 @@ import {
   cancelOrderApi,
   getOrderDetailApi,
   getOrderListApi,
+  getRefundOrderListApi,
+  handleRefundApi,
   remarkOrderApi,
   shipOrderApi,
 } from '#/api/core/operation';
@@ -188,6 +192,33 @@ const shipFormRules = {
   ] as RuleObject[],
 };
 
+// 状态表单控制
+const statusVisible = ref(false);
+const statusForm = reactive({
+  orderId: 0,
+  status: '' as '' | 'approved' | 'rejected',
+  remark: '',
+});
+const statusFormRef = ref<FormInstance | null>(null);
+const statusFormRules = {
+  status: [
+    {
+      required: true,
+      message: '请选择操作结果',
+      trigger: 'change',
+      type: 'string',
+    },
+  ] as RuleObject[],
+};
+
+// Tab 切换
+const activeTab = ref<string>('all');
+const handleTabChange = (activeKey: any) => {
+  activeTab.value = activeKey as string;
+  // 重置搜索条件
+  handleReset();
+};
+
 // 获取订单列表数据
 const fetchData = async () => {
   loading.value = true;
@@ -213,7 +244,12 @@ const fetchData = async () => {
     };
 
     try {
-      const res = await getOrderListApi(params);
+      // 根据当前标签页选择不同的API
+      const res =
+        activeTab.value === 'refund'
+          ? await getRefundOrderListApi(params)
+          : await getOrderListApi(params);
+
       // 因为requestClient是配置了responseReturn: 'data'的，所以res直接就是接口返回的data部分
       if (res) {
         tableData.value = res.list || [];
@@ -513,6 +549,54 @@ const confirmShip = async () => {
   }
 };
 
+// 处理退款申请
+const handleRefund = (record: any) => {
+  statusForm.orderId = record.id;
+  statusForm.status = '';
+  statusForm.remark = '';
+  statusVisible.value = true;
+};
+
+// 取消退款处理
+const cancelStatus = () => {
+  statusVisible.value = false;
+};
+
+// 确认退款处理
+const confirmStatus = async () => {
+  if (!statusFormRef.value) return;
+
+  try {
+    await statusFormRef.value.validate();
+    submitLoading.value = true;
+
+    const data: {
+      remark?: string;
+      status: 'approved' | 'rejected';
+    } = {
+      status: statusForm.status as 'approved' | 'rejected',
+    };
+
+    // 只有在有备注内容时才传入remark参数
+    if (statusForm.remark) {
+      data.remark = statusForm.remark;
+    }
+
+    await handleRefundApi(statusForm.orderId, data.status, data.remark);
+
+    message.success(
+      statusForm.status === 'approved' ? '退款申请已通过' : '退款申请已拒绝',
+    );
+    statusVisible.value = false;
+    fetchData();
+  } catch (error) {
+    console.error('处理退款失败:', error);
+    message.error('处理退款失败');
+  } finally {
+    submitLoading.value = false;
+  }
+};
+
 // 格式化日期
 const formatDate = (date: string) => {
   return date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '';
@@ -526,6 +610,9 @@ const getStatusText = (status: Order['status']) => {
     delivered: '已发货',
     completed: '已完成',
     cancelled: '已取消',
+    refund_pending: '退款处理中',
+    refund_approved: '退款已通过',
+    refund_rejected: '退款已拒绝',
   };
   return statusMap[status] || status;
 };
@@ -538,6 +625,9 @@ const getStatusColor = (status: Order['status']) => {
     delivered: 'cyan',
     completed: 'green',
     cancelled: 'red',
+    refund_pending: 'gold',
+    refund_approved: 'purple',
+    refund_rejected: 'volcano',
   };
   return colorMap[status] || 'default';
 };
@@ -660,83 +750,176 @@ onMounted(() => {
         </div>
       </div>
 
-      <Table
-        :columns="columns"
-        :data-source="tableData"
-        :loading="loading"
-        :pagination="pagination"
-        @change="handleTableChange"
-        row-key="id"
-      >
-        <!-- 订单号和用户信息 -->
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'orderInfo'">
-            <div>
-              <div>订单号: {{ record.orderNo }}</div>
-              <div>用户: {{ record.userName }}</div>
-              <div>类型: {{ getOrderTypeText(record.orderType) }}</div>
-            </div>
-          </template>
-
-          <!-- 订单金额 -->
-          <template v-if="column.key === 'amount'">
-            <div class="price">
-              ¥{{ Number(record.totalAmount).toFixed(2) }}
-            </div>
-          </template>
-
-          <!-- 订单状态 -->
-          <template v-if="column.key === 'status'">
-            <Tag :color="getStatusColor(record.status)">
-              {{ getStatusText(record.status) }}
-            </Tag>
-          </template>
-
-          <!-- 支付状态 -->
-          <template v-if="column.key === 'paymentStatus'">
-            <Tag :color="getPaymentStatusColor(record.paymentStatus)">
-              {{ getPaymentStatusText(record.paymentStatus) }}
-            </Tag>
-          </template>
-
-          <!-- 时间信息 -->
-          <template v-if="column.key === 'time'">
-            <div>
-              <div>下单: {{ formatDate(record.createdAt) }}</div>
-              <div v-if="record.paymentTime">
-                支付: {{ formatDate(record.paymentTime) }}
-              </div>
-            </div>
-          </template>
-
-          <!-- 操作 -->
-          <template v-if="column.key === 'action'">
-            <Space>
-              <Button type="link" @click="() => handleDetail(record)">
-                详情
-              </Button>
-              <template v-if="record.status === 'pending_payment'">
-                <Popconfirm
-                  title="确定取消该订单吗？"
-                  @confirm="() => handleCancel(record)"
-                  ok-text="确定"
-                  cancel-text="取消"
-                >
-                  <Button type="link" danger>取消订单</Button>
-                </Popconfirm>
+      <Tabs v-model:active-key="activeTab" @change="handleTabChange">
+        <TabPane tab="所有订单" key="all">
+          <Table
+            :columns="columns"
+            :data-source="tableData"
+            :loading="loading"
+            :pagination="pagination"
+            @change="handleTableChange"
+            row-key="id"
+          >
+            <!-- 订单号和用户信息 -->
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'orderInfo'">
+                <div>
+                  <div>订单号: {{ record.orderNo }}</div>
+                  <div>用户: {{ record.userName }}</div>
+                  <div>类型: {{ getOrderTypeText(record.orderType) }}</div>
+                </div>
               </template>
-              <template v-if="record.status === 'pending_delivery'">
-                <Button type="link" @click="() => handleShip(record)">
-                  发货
-                </Button>
+
+              <!-- 订单金额 -->
+              <template v-if="column.key === 'amount'">
+                <div class="price">
+                  ¥{{ Number(record.totalAmount).toFixed(2) }}
+                </div>
               </template>
-              <Button type="link" @click="() => handleRemark(record)">
-                备注
-              </Button>
-            </Space>
-          </template>
-        </template>
-      </Table>
+
+              <!-- 订单状态 -->
+              <template v-if="column.key === 'status'">
+                <Tag :color="getStatusColor(record.status)">
+                  {{ getStatusText(record.status) }}
+                </Tag>
+              </template>
+
+              <!-- 支付状态 -->
+              <template v-if="column.key === 'paymentStatus'">
+                <Tag :color="getPaymentStatusColor(record.paymentStatus)">
+                  {{ getPaymentStatusText(record.paymentStatus) }}
+                </Tag>
+              </template>
+
+              <!-- 时间信息 -->
+              <template v-if="column.key === 'time'">
+                <div>
+                  <div>下单: {{ formatDate(record.createdAt) }}</div>
+                  <div v-if="record.paymentTime">
+                    支付: {{ formatDate(record.paymentTime) }}
+                  </div>
+                </div>
+              </template>
+
+              <!-- 操作 -->
+              <template v-if="column.key === 'action'">
+                <Space>
+                  <Button type="link" @click="() => handleDetail(record)">
+                    详情
+                  </Button>
+                  <template v-if="record.status === 'pending_payment'">
+                    <Popconfirm
+                      title="确定取消该订单吗？"
+                      @confirm="() => handleCancel(record)"
+                      ok-text="确定"
+                      cancel-text="取消"
+                    >
+                      <Button type="link" danger>取消订单</Button>
+                    </Popconfirm>
+                  </template>
+                  <template v-if="record.status === 'pending_delivery'">
+                    <Button type="link" @click="() => handleShip(record)">
+                      发货
+                    </Button>
+                  </template>
+                  <template v-if="record.status === 'refund_pending'">
+                    <Button type="link" @click="() => handleRefund(record)">
+                      处理退款
+                    </Button>
+                  </template>
+                  <Button type="link" @click="() => handleRemark(record)">
+                    备注
+                  </Button>
+                </Space>
+              </template>
+            </template>
+          </Table>
+        </TabPane>
+        <TabPane tab="退款订单" key="refund">
+          <Table
+            :columns="columns"
+            :data-source="tableData"
+            :loading="loading"
+            :pagination="pagination"
+            @change="handleTableChange"
+            row-key="id"
+          >
+            <!-- 订单号和用户信息 -->
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'orderInfo'">
+                <div>
+                  <div>订单号: {{ record.orderNo }}</div>
+                  <div>用户: {{ record.userName }}</div>
+                  <div>类型: {{ getOrderTypeText(record.orderType) }}</div>
+                </div>
+              </template>
+
+              <!-- 订单金额 -->
+              <template v-if="column.key === 'amount'">
+                <div class="price">
+                  ¥{{ Number(record.totalAmount).toFixed(2) }}
+                </div>
+              </template>
+
+              <!-- 订单状态 -->
+              <template v-if="column.key === 'status'">
+                <Tag :color="getStatusColor(record.status)">
+                  {{ getStatusText(record.status) }}
+                </Tag>
+              </template>
+
+              <!-- 支付状态 -->
+              <template v-if="column.key === 'paymentStatus'">
+                <Tag :color="getPaymentStatusColor(record.paymentStatus)">
+                  {{ getPaymentStatusText(record.paymentStatus) }}
+                </Tag>
+              </template>
+
+              <!-- 时间信息 -->
+              <template v-if="column.key === 'time'">
+                <div>
+                  <div>下单: {{ formatDate(record.createdAt) }}</div>
+                  <div v-if="record.paymentTime">
+                    支付: {{ formatDate(record.paymentTime) }}
+                  </div>
+                </div>
+              </template>
+
+              <!-- 操作 -->
+              <template v-if="column.key === 'action'">
+                <Space>
+                  <Button type="link" @click="() => handleDetail(record)">
+                    详情
+                  </Button>
+                  <template v-if="record.status === 'pending_payment'">
+                    <Popconfirm
+                      title="确定取消该订单吗？"
+                      @confirm="() => handleCancel(record)"
+                      ok-text="确定"
+                      cancel-text="取消"
+                    >
+                      <Button type="link" danger>取消订单</Button>
+                    </Popconfirm>
+                  </template>
+                  <template v-if="record.status === 'pending_delivery'">
+                    <Button type="link" @click="() => handleShip(record)">
+                      发货
+                    </Button>
+                  </template>
+                  <template v-if="record.status === 'refund_pending'">
+                    <Button type="link" @click="() => handleRefund(record)">
+                      处理退款
+                    </Button>
+                  </template>
+                  <Button type="link" @click="() => handleRemark(record)">
+                    备注
+                  </Button>
+                </Space>
+              </template>
+            </template>
+          </Table>
+        </TabPane>
+      </Tabs>
     </Card>
 
     <!-- 订单详情弹窗 -->
@@ -905,6 +1088,42 @@ onMounted(() => {
           <Input
             v-model:value="shipForm.trackingNumber"
             placeholder="请输入快递单号"
+          />
+        </FormItem>
+      </Form>
+    </Modal>
+
+    <!-- 状态弹窗 -->
+    <Modal
+      v-model:visible="statusVisible"
+      title="处理退款申请"
+      @ok="confirmStatus"
+      :confirm-loading="submitLoading"
+      @cancel="cancelStatus"
+      ok-text="确定"
+      cancel-text="取消"
+    >
+      <Form
+        ref="statusFormRef"
+        :model="statusForm"
+        :rules="statusFormRules"
+        :label-col="{ span: 4 }"
+        :wrapper-col="{ span: 18 }"
+      >
+        <FormItem label="操作结果" name="status">
+          <Select
+            v-model:value="statusForm.status"
+            placeholder="请选择操作结果"
+          >
+            <SelectOption value="approved">通过</SelectOption>
+            <SelectOption value="rejected">拒绝</SelectOption>
+          </Select>
+        </FormItem>
+        <FormItem label="备注" name="remark">
+          <Textarea
+            v-model:value="statusForm.remark"
+            placeholder="请输入备注"
+            :rows="4"
           />
         </FormItem>
       </Form>

@@ -76,6 +76,15 @@
               </nut-button>
               
               <nut-button 
+                v-if="['pending_delivery', 'delivered'].includes(order.status)" 
+                plain 
+                size="small"
+                @click="applyRefund(order.id)"
+              >
+                申请退款
+              </nut-button>
+              
+              <nut-button 
                 v-if="['completed', 'cancelled'].includes(order.status)" 
                 plain 
                 size="small"
@@ -267,7 +276,10 @@ const getStatusText = (status) => {
     'pending_delivery': '待发货',
     'delivered': '待收货',
     'completed': '已完成',
-    'cancelled': '已取消'
+    'cancelled': '已取消',
+    'refund_pending': '退款审核中',
+    'refund_approved': '退款成功',
+    'refund_rejected': '退款被拒'
   };
   return statusMap[status] || '未知状态';
 };
@@ -421,6 +433,57 @@ const deleteOrder = (orderId) => {
           // 从列表中移除已删除的订单
           orderList.value = orderList.value.filter(order => order.id !== orderId);
         }, 500);
+      }
+    }
+  });
+};
+
+// 申请退款
+const applyRefund = (orderId) => {
+  uni.showModal({
+    title: '申请退款',
+    content: '确定要申请退款吗？',
+    success: (res) => {
+      if (res.confirm) {
+        // 弹出输入框，让用户输入退款原因
+        uni.showModal({
+          title: '退款原因',
+          editable: true,
+          placeholderText: '请输入退款原因',
+          success: async (reasonRes) => {
+            if (reasonRes.confirm) {
+              const reason = reasonRes.content || '用户未填写退款原因';
+              
+              try {
+                uni.showLoading({
+                  title: '提交中'
+                });
+                
+                const result = await orderApi.applyRefund(orderId, { reason });
+                
+                if (result && result.code === 0) {
+                  uni.hideLoading();
+                  uni.showToast({
+                    title: '退款申请已提交',
+                    icon: 'success'
+                  });
+                  
+                  // 刷新订单列表
+                  fetchOrderList();
+                } else {
+                  throw new Error(result?.message || '申请退款失败');
+                }
+              } catch (error) {
+                console.error('申请退款失败', error);
+                uni.hideLoading();
+                uni.showToast({
+                  title: error.message || '申请退款失败',
+                  icon: 'none'
+                });
+              }
+            }
+          }
+        });
       }
     }
   });

@@ -7,7 +7,7 @@
  * - orderNo: 订单编号
  * - userId: 用户ID
  * - totalAmount: 订单总金额
- * - status: 订单状态（待付款、待发货、已发货、已完成、已取消）
+ * - status: 订单状态（待付款、待发货、已发货、已完成、已取消、退款中、退款通过、退款拒绝）
  * - paymentStatus: 支付状态（未支付、已支付、已退款）
  * - paymentMethod: 支付方式
  * - paymentTime: 支付时间
@@ -20,6 +20,10 @@
  * - remark: 订单备注
  * - transactionId: 交易流水号
  * - orderType: 订单类型（普通商品订单、VIP订单等）
+ * - refundReason: 退款原因
+ * - refundRequestTime: 退款申请时间
+ * - refundApprovalTime: 退款处理时间
+ * - refundRemark: 退款备注信息
  *
  * 关联关系：
  * - 订单属于一个用户(User)
@@ -62,9 +66,9 @@ const Order = sequelize.define("Order", {
     type: DataTypes.STRING,
     allowNull: false,
     defaultValue: 'pending_payment',
-    comment: '订单状态: 待付款、待发货、已发货、已完成、已取消',
+    comment: '订单状态: 待付款、待发货、已发货、已完成、已取消、退款中、退款通过、退款拒绝',
     validate: {
-      isIn: [['pending_payment', 'pending_delivery', 'delivered', 'completed', 'cancelled']]
+      isIn: [['pending_payment', 'pending_delivery', 'delivered', 'completed', 'cancelled', 'refund_pending', 'refund_approved', 'refund_rejected']]
     }
   },
   paymentStatus: {
@@ -131,6 +135,26 @@ const Order = sequelize.define("Order", {
     allowNull: true,
     defaultValue: 'normal',
     comment: '订单类型：normal-普通商品订单，vip-VIP订单'
+  },
+  refundReason: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '退款原因'
+  },
+  refundRequestTime: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: '退款申请时间'
+  },
+  refundApprovalTime: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: '退款处理时间'
+  },
+  refundRemark: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '退款备注信息'
   }
 }, {
   tableName: 'Orders',
@@ -317,6 +341,10 @@ const syncOrderTable = async (retries = 5, delay = 2000) => {
             \`remark\` VARCHAR(255),
             \`transactionId\` VARCHAR(255),
             \`orderType\` VARCHAR(20) DEFAULT 'normal',
+            \`refundReason\` VARCHAR(255),
+            \`refundRequestTime\` DATETIME,
+            \`refundApprovalTime\` DATETIME,
+            \`refundRemark\` VARCHAR(255),
             \`createdAt\` DATETIME NOT NULL,
             \`updatedAt\` DATETIME NOT NULL,
             PRIMARY KEY (\`id\`),
