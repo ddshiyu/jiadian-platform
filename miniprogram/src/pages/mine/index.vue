@@ -20,7 +20,21 @@
           />
         </nut-avatar>
         <view class="user-details">
-          <view v-if="userInfo.isLoggedIn" class="nickname">{{ userInfo.nickname || '微信用户' }}</view>
+          <view v-if="userInfo.isLoggedIn" class="nickname">
+            {{ userInfo.nickname || '微信用户' }}
+            <image 
+              v-if="userInfo.userType === 'supplier'" 
+              src="@/static/icons/b.png" 
+              mode="aspectFit" 
+              class="user-type-icon"
+            />
+            <image 
+              v-else 
+              src="@/static/icons/c.png" 
+              mode="aspectFit" 
+              class="user-type-icon"
+            />
+          </view>
           <button 
             v-else 
             class="login-btn" 
@@ -1017,5 +1031,12 @@ const formatDate = (date) => {
   padding: 20rpx;
   display: flex;
   justify-content: space-between;
+}
+
+.user-type-icon {
+  width: 34rpx;
+  height: 34rpx;
+  margin-left: 10rpx;
+  vertical-align: middle;
 }
 </style> 
