@@ -939,7 +939,7 @@ onMounted(() => {
             {{ formatDate(currentOrder.createdAt) }}
           </DescriptionsItem>
           <DescriptionsItem label="用户">
-            {{ currentOrder.userName }}
+            {{ currentOrder.user.nickname }}
           </DescriptionsItem>
           <DescriptionsItem label="总金额">
             ¥{{ Number(currentOrder.totalAmount).toFixed(2) }}
