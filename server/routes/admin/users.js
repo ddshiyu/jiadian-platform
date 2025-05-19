@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { User, Order } = require('../../models');
+const { AdminUser } = require('../../models');
 const adminAuth = require('../../middleware/adminAuth');
 const { Op } = require('sequelize');
+const sequelize = require('sequelize');
 
 /**
- * @api {get} /admin/users 获取用户列表
- * @apiDescription 获取用户列表(管理员)
+ * @api {get} /admin/users 获取管理员列表
+ * @apiDescription 获取管理员列表(超级管理员)
  * @apiHeader {String} Authorization Bearer JWT
  */
 router.get('/', adminAuth, async (req, res) => {
@@ -14,13 +15,18 @@ router.get('/', adminAuth, async (req, res) => {
     const {
       keyword,
       role,
+      status,
       startDate,
       endDate,
-      page = 1,
-      pageSize = 10,
       sort = 'createdAt',
       order = 'DESC'
     } = req.query;
+
+    // 使用中间件提供的分页参数获取方法
+    const { page, size, offset } = req.getPaginationParams({
+      pageName: 'pageNum',
+      sizeName: 'pageSize'
+    });
 
     // 构建查询条件
     const where = {};
@@ -30,13 +36,18 @@ router.get('/', adminAuth, async (req, res) => {
       where[Op.or] = [
         { username: { [Op.like]: `%${keyword}%` } },
         { name: { [Op.like]: `%${keyword}%` } },
-        { phone: { [Op.like]: `%${keyword}%` } }
+        { email: { [Op.like]: `%${keyword}%` } }
       ];
     }
 
     // 角色筛选
-    if (role) {
+    if (role && ['admin', 'editor', 'viewer'].includes(role)) {
       where.role = role;
+    }
+
+    // 状态筛选
+    if (status && ['active', 'inactive'].includes(status)) {
+      where.status = status;
     }
 
     // 日期范围查询
@@ -50,103 +61,96 @@ router.get('/', adminAuth, async (req, res) => {
       where.createdAt = { [Op.lte]: new Date(endDate) };
     }
 
-    // 计算分页信息
-    const offset = (page - 1) * pageSize;
-
-    // 获取用户列表
-    const { count, rows } = await User.findAndCountAll({
+    // 获取管理员列表
+    const users = await AdminUser.findAll({
       where,
       attributes: { exclude: ['password'] },
       order: [[sort, order]],
-      limit: parseInt(pageSize),
-      offset: parseInt(offset)
+      limit: size,
+      offset: offset
     });
 
-    // 构建分页信息
-    const pagination = {
-      total: count,
-      pageSize: parseInt(pageSize),
-      current: parseInt(page),
-      totalPages: Math.ceil(count / pageSize)
-    };
+    // 获取总数
+    const total = await AdminUser.count({ where });
 
-    res.status(200).json({
-      list: rows,
-      pagination
+    // 使用分页中间件的paginate方法返回分页结果
+    res.paginate(users, {
+      total,
+      page,
+      size,
+      removeDefaults: true,  // 移除默认的page和size字段
+      custom: {
+        pageNum: page,
+        pageSize: size,
+        totalPages: Math.ceil(total / size)  // 总页数需要保留
+      }
     });
   } catch (error) {
-    console.error('获取用户列表失败:', error);
-    res.status(400).json({ message: '获取用户列表失败' });
+    console.error('获取管理员列表失败:', error);
+    res.status(400).json({ message: '获取管理员列表失败' });
   }
 });
 
 /**
- * @api {get} /admin/users/:id 获取用户详情
- * @apiDescription 获取用户详情(管理员)
+ * @api {get} /admin/users/:id 获取管理员详情
+ * @apiDescription 获取管理员详情(超级管理员)
  * @apiHeader {String} Authorization Bearer JWT
  */
 router.get('/:id', adminAuth, async (req, res) => {
   try {
-    const user = await User.findByPk(req.params.id, {
+    const user = await AdminUser.findByPk(req.params.id, {
       attributes: { exclude: ['password'] }
     });
 
     if (!user) {
-      return res.status(400).json({ message: '用户不存在' });
+      return res.status(400).json({ message: '管理员不存在' });
     }
 
-    // 获取用户订单数量
-    const orderCount = await Order.count({
-      where: { userId: user.id }
-    });
-
-    // 获取用户最近订单
-    const recentOrders = await Order.findAll({
-      where: { userId: user.id },
-      limit: 5,
-      order: [['createdAt', 'DESC']]
-    });
-
-    res.status(200).json({
-      ...user.toJSON(),
-      stats: {
-        orderCount,
-        recentOrders
-      }
-    });
+    res.status(200).json(user);
   } catch (error) {
-    console.error('获取用户详情失败:', error);
-    res.status(400).json({ message: '获取用户详情失败' });
+    console.error('获取管理员详情失败:', error);
+    res.status(400).json({ message: '获取管理员详情失败' });
   }
 });
 
 /**
- * @api {post} /admin/users 创建用户
- * @apiDescription 创建用户(管理员)
+ * @api {post} /admin/users 创建管理员
+ * @apiDescription 创建管理员(超级管理员)
  * @apiHeader {String} Authorization Bearer JWT
  */
 router.post('/', adminAuth, async (req, res) => {
   try {
-    const { username, password, name, phone, role } = req.body;
+    const { username, password, name, email, role, status } = req.body;
 
     // 验证必填字段
-    if (!username || !password) {
-      return res.status(400).json({ message: '用户名和密码不能为空' });
+    if (!username || !password || !name) {
+      return res.status(400).json({ message: '用户名、密码和姓名不能为空' });
     }
 
     // 检查用户名是否已存在
-    const existingUser = await User.findOne({ where: { username } });
+    const existingUser = await AdminUser.findOne({ where: { username } });
     if (existingUser) {
       return res.status(400).json({ message: '用户名已存在' });
     }
 
-    // 创建用户
-    const user = await User.create({
+    // 验证角色
+    if (role && !['admin', 'editor', 'viewer'].includes(role)) {
+      return res.status(400).json({ message: '无效的角色类型' });
+    }
+
+    // 验证状态
+    if (status && !['active', 'inactive'].includes(status)) {
+      return res.status(400).json({ message: '无效的状态类型' });
+    }
+
+    // 创建管理员
+    const user = await AdminUser.create({
       username,
-      password, // 密码会在模型的钩子中加密
+      password, // 密码会在模型的钩子中自动加密
       name,
-      phone,
-      role: role || 'user'
+      email,
+      role: role || 'editor',
+      status: status || 'active'
     });
 
     // 不返回密码字段
@@ -154,28 +158,54 @@ router.post('/', adminAuth, async (req, res) => {
 
     res.status(200).json(userWithoutPassword);
   } catch (error) {
-    console.error('创建用户失败:', error);
-    res.status(400).json({ message: '创建用户失败' });
+    console.error('创建管理员失败:', error);
+    res.status(400).json({ message: '创建管理员失败' });
   }
 });
 
 /**
- * @api {put} /admin/users/:id 更新用户
- * @apiDescription 更新用户信息(管理员)
+ * @api {put} /admin/users/:id 更新管理员
+ * @apiDescription 更新管理员信息(超级管理员)
  * @apiHeader {String} Authorization Bearer JWT
  */
 router.put('/:id', adminAuth, async (req, res) => {
   try {
-    const { name, phone, role, status } = req.body;
-    const user = await User.findByPk(req.params.id);
+    const { name, email, role, status } = req.body;
+    const user = await AdminUser.findByPk(req.params.id);
 
     if (!user) {
-      return res.status(400).json({ message: '用户不存在' });
+      return res.status(400).json({ message: '管理员不存在' });
     }
 
-    // 更新用户信息
+    // 获取当前登录的管理员信息
+    const currentAdmin = req.admin;
+    if (!currentAdmin) {
+      return res.status(401).json({ message: '未找到当前登录的管理员信息' });
+    }
+
+    // 不能修改自己的角色
+    if (user.id === currentAdmin.id && role) {
+      return res.status(400).json({ message: '不能修改自己的角色' });
+    }
+
+    // 只有超级管理员可以修改其他管理员的角色
+    if (role && currentAdmin.role !== 'admin') {
+      return res.status(403).json({ message: '只有超级管理员可以修改角色' });
+    }
+
+    // 验证角色
+    if (role && !['admin', 'editor', 'viewer'].includes(role)) {
+      return res.status(400).json({ message: '无效的角色类型' });
+    }
+
+    // 验证状态
+    if (status && !['active', 'inactive'].includes(status)) {
+      return res.status(400).json({ message: '无效的状态类型' });
+    }
+
+    // 更新管理员信息
     if (name !== undefined) user.name = name;
-    if (phone !== undefined) user.phone = phone;
+    if (email !== undefined) user.email = email;
     if (role !== undefined) user.role = role;
     if (status !== undefined) user.status = status;
 
@@ -186,14 +216,14 @@ router.put('/:id', adminAuth, async (req, res) => {
 
     res.status(200).json(userWithoutPassword);
   } catch (error) {
-    console.error('更新用户失败:', error);
-    res.status(400).json({ message: '更新用户失败' });
+    console.error('更新管理员失败:', error);
+    res.status(400).json({ message: '更新管理员失败' });
   }
 });
 
 /**
- * @api {put} /admin/users/:id/reset-password 重置用户密码
- * @apiDescription 重置用户密码(管理员)
+ * @api {put} /admin/users/:id/reset-password 重置管理员密码
+ * @apiDescription 重置管理员密码(超级管理员)
  * @apiHeader {String} Authorization Bearer JWT
  */
 router.put('/:id/reset-password', adminAuth, async (req, res) => {
@@ -204,10 +234,10 @@ router.put('/:id/reset-password', adminAuth, async (req, res) => {
       return res.status(400).json({ message: '密码不能为空' });
     }
 
-    const user = await User.findByPk(req.params.id);
+    const user = await AdminUser.findByPk(req.params.id);
 
     if (!user) {
-      return res.status(400).json({ message: '用户不存在' });
+      return res.status(400).json({ message: '管理员不存在' });
     }
 
     // 更新密码
@@ -224,8 +254,8 @@ router.put('/:id/reset-password', adminAuth, async (req, res) => {
 });
 
 /**
- * @api {put} /admin/users/:id/status 更新用户状态
- * @apiDescription 更新用户状态(启用/禁用)(管理员)
+ * @api {put} /admin/users/:id/status 更新管理员状态
+ * @apiDescription 更新管理员状态(启用/禁用)(超级管理员)
  * @apiHeader {String} Authorization Bearer JWT
  */
 router.put('/:id/status', adminAuth, async (req, res) => {
@@ -233,13 +263,13 @@ router.put('/:id/status', adminAuth, async (req, res) => {
     const { status } = req.body;
 
     if (!['active', 'inactive'].includes(status)) {
-      return res.status(400).json({ message: '无效的用户状态' });
+      return res.status(400).json({ message: '无效的管理员状态' });
     }
 
-    const user = await User.findByPk(req.params.id);
+    const user = await AdminUser.findByPk(req.params.id);
 
     if (!user) {
-      return res.status(400).json({ message: '用户不存在' });
+      return res.status(400).json({ message: '管理员不存在' });
     }
 
     // 不能修改自己的状态
@@ -251,65 +281,67 @@ router.put('/:id/status', adminAuth, async (req, res) => {
     await user.save();
 
     res.status(200).json({
-      message: status === 'active' ? '用户已启用' : '用户已禁用',
+      message: status === 'active' ? '管理员已启用' : '管理员已禁用',
       status
     });
   } catch (error) {
-    console.error('更新用户状态失败:', error);
-    res.status(400).json({ message: '更新用户状态失败' });
+    console.error('更新管理员状态失败:', error);
+    res.status(400).json({ message: '更新管理员状态失败' });
   }
 });
 
 /**
- * @api {get} /admin/users/statistics/summary 获取用户统计摘要
- * @apiDescription 获取用户统计摘要(管理员)
+ * @api {get} /admin/users/statistics/summary 获取管理员统计摘要
+ * @apiDescription 获取管理员统计摘要(超级管理员)
  * @apiHeader {String} Authorization Bearer JWT
  */
 router.get('/statistics/summary', adminAuth, async (req, res) => {
   try {
-    // 获取用户总数
-    const totalCount = await User.count();
+    // 获取管理员总数
+    const totalCount = await AdminUser.count();
 
-    // 获取今日新增用户数
+    // 获取今日新增管理员数
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const todayNewUsers = await User.count({
+    const todayNewUsers = await AdminUser.count({
       where: {
         createdAt: { [Op.gte]: today }
       }
     });
 
-    // 获取本月新增用户数
+    // 获取本月新增管理员数
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const monthNewUsers = await User.count({
+    const monthNewUsers = await AdminUser.count({
       where: {
         createdAt: { [Op.gte]: startOfMonth }
       }
     });
 
-    // 获取活跃用户数（有订单的用户）
-    const activeUserCount = await User.count({
-      include: [
-        {
-          model: Order,
-          required: true
-        }
-      ]
+    // 获取各角色管理员数量
+    const roleStats = await AdminUser.findAll({
+      attributes: [
+        'role',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      group: ['role']
     });
 
     res.status(200).json({
       totalCount,
       todayNewUsers,
       monthNewUsers,
-      activeUserCount
+      roleStats: roleStats.reduce((acc, curr) => {
+        acc[curr.role] = curr.get('count');
+        return acc;
+      }, {})
     });
   } catch (error) {
-    console.error('获取用户统计摘要失败:', error);
-    res.status(400).json({ message: '获取用户统计摘要失败' });
+    console.error('获取管理员统计摘要失败:', error);
+    res.status(400).json({ message: '获取管理员统计摘要失败' });
   }
 });
 
