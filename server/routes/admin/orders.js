@@ -6,6 +6,16 @@ const User = require('../../models/User');
 const Product = require('../../models/Product');
 const { Op } = require('sequelize');
 const sequelize = require('../../config/database');
+const fs = require('fs');
+const WxPay = require('wechatpay-node-v3');
+// 微信支付实例，放在路由外部全局定义，避免重复创建
+const pay = new WxPay({
+  appid: process.env.WECHAT_APPID,
+  mchid: process.env.WECHAT_MCHID,
+  publicKey: fs.readFileSync(__dirname + '/../../wxpay_pem/apiclient_cert.pem'), // 公钥
+  privateKey: fs.readFileSync(__dirname + '/../../wxpay_pem/apiclient_key.pem'), // 秘钥
+});
+
 
 // 获取订单列表
 router.get('/', async (req, res) => {
@@ -529,14 +539,10 @@ router.delete('/:id', async (req, res) => {
 
 // 处理退款申请
 router.put('/:id/refund', async (req, res) => {
-  // 开启事务
-  const t = await sequelize.transaction();
-
   try {
     const { status, remark } = req.body;
 
     if (!status || !['approved', 'rejected'].includes(status)) {
-      await t.rollback();
       return res.status(400).json({ message: '请提供有效的处理结果' });
     }
 
@@ -550,62 +556,69 @@ router.put('/:id/refund', async (req, res) => {
           model: User,
           attributes: ['id', 'nickname', 'phone']
         }
-      ],
-      transaction: t
+      ]
     });
 
     if (!order) {
-      await t.rollback();
       return res.status(400).json({ message: '订单不存在或状态不正确' });
     }
 
     if (status === 'approved') {
-      // 退款通过
-      order.status = 'refund_approved';
-      order.paymentStatus = 'refunded';
-      order.refundApprovalTime = new Date();
-      order.refundRemark = remark || '退款申请已通过';
+      try {
+        // 调用微信支付退款接口
+        const refundResult = await pay.refunds({
+          transaction_id: order.transactionId, // 微信支付订单号
+          out_refund_no: `refund_${order.orderNo}_${Date.now()}`, // 商户退款单号
+          reason: order.refundReason || '用户申请退款', // 退款原因
+          notify_url: `${process.env.WECHAT_SUCCESSCALLBACK || 'http://localhost:3000'}/wxNotify/refundNotify`, // 退款结果通知的回调地址
+          amount: {
+            refund: Math.floor(order.totalAmount * 100), // 退款金额，单位：分
+            total: Math.floor(order.totalAmount * 100), // 原订单金额，单位：分
+            currency: 'CNY'
+          }
+        });
 
-      // 恢复库存和销量
-      const orderItems = await OrderItem.findAll({
-        where: { orderId: order.id },
-        transaction: t
-      });
+        // 更新订单状态为退款处理中
+        order.status = 'refund_processing';
+        order.refundRemark = remark || '退款申请已通过，等待退款结果';
+        await order.save();
 
-      for (const item of orderItems) {
-        const product = await Product.findByPk(item.productId, { transaction: t });
-        if (product) {
-          product.stock += item.quantity;
-          product.sales -= item.quantity;
-          await product.save({ transaction: t });
-        }
+        res.status(200).json({
+          message: '退款申请已提交，等待退款结果',
+          order: {
+            id: order.id,
+            orderNo: order.orderNo,
+            status: order.status,
+            refundRemark: order.refundRemark
+          }
+        });
+      } catch (refundError) {
+        console.error('微信退款失败:', refundError);
+        res.status(500).json({
+          message: '退款申请提交失败',
+          error: refundError.message
+        });
       }
     } else {
       // 退款拒绝
       order.status = 'refund_rejected';
       order.refundApprovalTime = new Date();
       order.refundRemark = remark || '退款申请已拒绝';
+
+      await order.save();
+
+      res.status(200).json({
+        message: '退款已拒绝',
+        order: {
+          id: order.id,
+          orderNo: order.orderNo,
+          status: order.status,
+          refundApprovalTime: order.refundApprovalTime,
+          refundRemark: order.refundRemark
+        }
+      });
     }
-
-    await order.save({ transaction: t });
-
-    // 提交事务
-    await t.commit();
-
-    res.status(200).json({
-      message: status === 'approved' ? '退款已通过' : '退款已拒绝',
-      order: {
-        id: order.id,
-        orderNo: order.orderNo,
-        status: order.status,
-        paymentStatus: order.paymentStatus,
-        refundApprovalTime: order.refundApprovalTime,
-        refundRemark: order.refundRemark
-      }
-    });
   } catch (error) {
-    // 回滚事务
-    await t.rollback();
     console.error('处理退款失败:', error.message, error.stack);
     res.status(400).json({ message: '处理退款失败', error: error.message });
   }

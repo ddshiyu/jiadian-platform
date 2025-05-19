@@ -68,7 +68,7 @@ const Order = sequelize.define("Order", {
     defaultValue: 'pending_payment',
     comment: '订单状态: 待付款、待发货、已发货、已完成、已取消、退款中、退款通过、退款拒绝',
     validate: {
-      isIn: [['pending_payment', 'pending_delivery', 'delivered', 'completed', 'cancelled', 'refund_pending', 'refund_approved', 'refund_rejected']]
+      isIn: [['pending_payment', 'pending_delivery', 'delivered', 'completed', 'cancelled', 'refund_pending', 'refund_processing', 'refund_approved', 'refund_rejected']]
     }
   },
   paymentStatus: {

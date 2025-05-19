@@ -33,6 +33,7 @@ const adminCommissionRouter = require('./routes/admin/commission');
 
 // 通用路由
 const uploadRouter = require('./routes/common/upload');
+const wxNotifyRouter = require('./routes/common/wxNotify');
 
 var app = express();
 
@@ -59,6 +60,7 @@ app.use('/admin/auth', adminAuthRouter);
 
 // 通用上传接口（需要验证token）
 app.use('/upload', auth, uploadRouter);
+app.use('/wxNotify', wxNotifyRouter);
 
 // 小程序接口路由 - 需要token验证
 app.use('/userInfo', auth, userInfoRouter);
