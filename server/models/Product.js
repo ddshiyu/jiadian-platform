@@ -18,9 +18,11 @@
  * - status: 商品状态（在售、下架、已删除）
  * - categoryId: 商品分类ID
  * - isRecommended: 是否为热门推荐商品
+ * - merchantId: 商家ID（关联到AdminUser）
  *
  * 关联关系：
  * - 商品属于一个分类(Category)
+ * - 商品属于一个商家(AdminUser)
  * - 一个商品可以存在于多个购物车(Cart)
  * - 一个商品可以关联多个订单项(OrderItem)
  */
@@ -95,6 +97,11 @@ const Product = sequelize.define("Product", {
     type: DataTypes.INTEGER,
     allowNull: true
   },
+  merchantId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    comment: '商家ID（关联到AdminUser）'
+  },
   isRecommended: {
     type: DataTypes.BOOLEAN,
     allowNull: false,
@@ -109,6 +116,18 @@ const syncProductTable = async (retries = 5, delay = 2000) => {
 
   while (attempt < retries) {
     try {
+      // 尝试直接执行SQL添加 merchantId 列
+      try {
+        await sequelize.query(`
+          ALTER TABLE Products
+          ADD COLUMN merchantId INT NOT NULL DEFAULT 1 AFTER categoryId
+        `);
+        console.log("已添加 merchantId 列到产品表");
+      } catch (columnError) {
+        // 如果列已存在，会报错，但不影响后续操作
+        console.log("merchantId 列可能已存在:", columnError.message);
+      }
+
       // 使用force: false和alter: true选项，确保不会删除现有数据
       await Product.sync({ alter: true, force: false });
       console.log("商品表结构已同步");

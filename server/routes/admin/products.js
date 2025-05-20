@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { Product, Category } = require('../../models');
+const { Product, Category, AdminUser } = require('../../models');
 const { Op } = require('sequelize');
+const adminAuth = require('../../middleware/adminAuth');
 
 /**
  * @api {get} /admin/products 获取商品列表
- * @apiDescription 获取商品列表(管理员)
+ * @apiDescription 获取商品列表(管理员查看所有商品，商家只能查看自己的商品)
  * @apiHeader {String} Authorization Bearer JWT
  * @apiParam {Number} [pageNum=1] 当前页码
  * @apiParam {Number} [pageSize=10] 每页数量
@@ -16,7 +17,7 @@ const { Op } = require('sequelize');
  * @apiParam {String} [sort=createdAt] 排序字段
  * @apiParam {String} [order=DESC] 排序方式
  */
-router.get('/', async (req, res) => {
+router.get('/', adminAuth, async (req, res) => {
   try {
     // 使用中间件提供的分页参数获取方法，并指定参数名
     const { page, size, offset } = req.getPaginationParams({
@@ -56,6 +57,11 @@ router.get('/', async (req, res) => {
       where.isRecommended = isRecommended === 'true';
     }
 
+    // 商家用户只能查看自己的商品
+    if (req.adminRole === 'user') {
+      where.merchantId = req.adminId;
+    }
+
     // 查询商品总数
     const total = await Product.count({ where });
 
@@ -66,6 +72,11 @@ router.get('/', async (req, res) => {
         {
           model: Category,
           attributes: ['id', 'name']
+        },
+        {
+          model: AdminUser,
+          as: 'merchant',
+          attributes: ['id', 'username', 'name']
         }
       ],
       order: [[sort, order]],
@@ -96,22 +107,32 @@ router.get('/', async (req, res) => {
 
 /**
  * @api {get} /admin/products/:id 获取商品详情
- * @apiDescription 获取商品详情(管理员)
+ * @apiDescription 获取商品详情(管理员和商品所属商家)
  * @apiHeader {String} Authorization Bearer JWT
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', adminAuth, async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id, {
       include: [
         {
           model: Category,
           attributes: ['id', 'name']
+        },
+        {
+          model: AdminUser,
+          as: 'merchant',
+          attributes: ['id', 'username', 'name']
         }
       ]
     });
 
     if (!product) {
       return res.status(404).json({ message: '商品不存在' });
+    }
+
+    // 商家只能查看自己的商品
+    if (req.adminRole === 'user' && product.merchantId !== req.adminId) {
+      return res.status(403).json({ message: '无权查看该商品' });
     }
 
     res.status(200).json(product);
@@ -126,19 +147,29 @@ router.get('/:id', async (req, res) => {
 
 /**
  * @api {post} /admin/products 创建商品
- * @apiDescription 创建新商品(管理员)
+ * @apiDescription 创建新商品(管理员创建任意商品，商家创建自己的商品)
  * @apiHeader {String} Authorization Bearer JWT
  */
-router.post('/', async (req, res) => {
+router.post('/', adminAuth, async (req, res) => {
   try {
     const {
       name, description, price, originalPrice, wholesalePrice, wholesaleThreshold, vipPrice,
-      stock, cover, images, status, categoryId, isRecommended
+      stock, cover, images, status, categoryId, isRecommended, merchantId
     } = req.body;
 
     // 验证必填字段
     if (!name || !price) {
       return res.status(400).json({ message: '商品名称和价格不能为空' });
+    }
+
+    // 确定商品所属的商家ID
+    let finalMerchantId;
+    if (req.adminRole === 'admin') {
+      // 管理员可以指定商品所属商家
+      finalMerchantId = merchantId || req.adminId;
+    } else {
+      // 商家只能创建属于自己的商品
+      finalMerchantId = req.adminId;
     }
 
     // 创建商品
@@ -155,6 +186,7 @@ router.post('/', async (req, res) => {
       images,
       status: status || 'off_sale',
       categoryId,
+      merchantId: finalMerchantId,
       isRecommended: isRecommended || false
     });
 
@@ -173,20 +205,25 @@ router.post('/', async (req, res) => {
 
 /**
  * @api {put} /admin/products/:id 更新商品
- * @apiDescription 更新商品信息(管理员)
+ * @apiDescription 更新商品信息(管理员可更新任意商品，商家只能更新自己的商品)
  * @apiHeader {String} Authorization Bearer JWT
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', adminAuth, async (req, res) => {
   try {
     const {
       name, description, price, originalPrice, wholesalePrice, wholesaleThreshold, vipPrice,
-      stock, cover, images, status, categoryId, isRecommended
+      stock, cover, images, status, categoryId, isRecommended, merchantId
     } = req.body;
 
     const product = await Product.findByPk(req.params.id);
 
     if (!product) {
       return res.status(404).json({ message: '商品不存在' });
+    }
+
+    // 商家只能更新自己的商品
+    if (req.adminRole === 'user' && product.merchantId !== req.adminId) {
+      return res.status(403).json({ message: '无权更新该商品' });
     }
 
     // 更新商品信息
@@ -203,6 +240,11 @@ router.put('/:id', async (req, res) => {
     if (status !== undefined) product.status = status;
     if (categoryId !== undefined) product.categoryId = categoryId;
     if (isRecommended !== undefined) product.isRecommended = isRecommended;
+
+    // 只有管理员可以修改商品所属商家
+    if (req.adminRole === 'admin' && merchantId !== undefined) {
+      product.merchantId = merchantId;
+    }
 
     await product.save();
 
@@ -221,15 +263,20 @@ router.put('/:id', async (req, res) => {
 
 /**
  * @api {delete} /admin/products/:id 删除商品
- * @apiDescription 删除商品(管理员)
+ * @apiDescription 删除商品(管理员可删除任意商品，商家只能删除自己的商品)
  * @apiHeader {String} Authorization Bearer JWT
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', adminAuth, async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id);
 
     if (!product) {
       return res.status(404).json({ message: '商品不存在' });
+    }
+
+    // 商家只能删除自己的商品
+    if (req.adminRole === 'user' && product.merchantId !== req.adminId) {
+      return res.status(403).json({ message: '无权删除该商品' });
     }
 
     // 软删除：将状态设置为deleted
@@ -250,10 +297,10 @@ router.delete('/:id', async (req, res) => {
 
 /**
  * @api {put} /admin/products/:id/status 更新商品状态
- * @apiDescription 更新商品上下架状态(管理员)
+ * @apiDescription 更新商品上下架状态(管理员可更新任意商品，商家只能更新自己的商品)
  * @apiHeader {String} Authorization Bearer JWT
  */
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', adminAuth, async (req, res) => {
   try {
     const { status } = req.body;
 
@@ -265,6 +312,11 @@ router.put('/:id/status', async (req, res) => {
 
     if (!product) {
       return res.status(404).json({ message: '商品不存在' });
+    }
+
+    // 商家只能更新自己的商品
+    if (req.adminRole === 'user' && product.merchantId !== req.adminId) {
+      return res.status(403).json({ message: '无权更新该商品' });
     }
 
     if (product.status === 'deleted') {
@@ -295,10 +347,10 @@ router.put('/:id/status', async (req, res) => {
 
 /**
  * @api {post} /admin/products/batch 批量操作商品
- * @apiDescription 批量操作商品(上下架、删除)(管理员)
+ * @apiDescription 批量操作商品(上下架、删除)(管理员可操作任意商品，商家只能操作自己的商品)
  * @apiHeader {String} Authorization Bearer JWT
  */
-router.post('/batch', async (req, res) => {
+router.post('/batch', adminAuth, async (req, res) => {
   try {
     const { ids, action } = req.body;
 
@@ -308,6 +360,18 @@ router.post('/batch', async (req, res) => {
 
     if (!['on_sale', 'off_sale', 'delete'].includes(action)) {
       return res.status(400).json({ message: '无效的操作类型' });
+    }
+
+    // 如果是商家用户，需要验证所有商品都属于该商家
+    if (req.adminRole === 'user') {
+      const products = await Product.findAll({
+        where: { id: { [Op.in]: ids } }
+      });
+
+      const hasUnauthorizedProduct = products.some(product => product.merchantId !== req.adminId);
+      if (hasUnauthorizedProduct) {
+        return res.status(403).json({ message: '您选择的商品中包含无权操作的商品' });
+      }
     }
 
     const status = action === 'delete' ? 'deleted' : action;

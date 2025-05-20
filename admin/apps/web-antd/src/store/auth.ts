@@ -27,15 +27,17 @@ export const useAuthStore = defineStore('auth', () => {
     onSuccess?: () => Promise<void> | void,
   ) {
     // 异步处理用户登录操作并获取 accessToken
-    const userInfo: null | UserInfo = null;
+    let userInfo: null | UserInfo = null;
     try {
       loginLoading.value = true;
-      const { token } = await loginApi(params);
+      const { token, user } = await loginApi(params);
       const accessToken = token;
       // 如果成功获取到 accessToken
       if (accessToken) {
         accessStore.setAccessToken(accessToken);
-
+        user.roles = [user.role];
+        userInfo = user;
+        userStore.setUserInfo(userInfo);
         // // 获取用户信息并存储到 accessStore 中
         // const [fetchUserInfoResult, accessCodes] = await Promise.all([
         //   fetchUserInfo(),
@@ -50,9 +52,15 @@ export const useAuthStore = defineStore('auth', () => {
         // if (accessStore.loginExpired) {
         //   accessStore.setLoginExpired(false);
         // } else {
-        onSuccess
-          ? await onSuccess?.()
-          : await router.push('/operation/users');
+        if (user.role === 'admin') {
+          onSuccess
+            ? await onSuccess?.()
+            : await router.push('/operation/users');
+        } else {
+          onSuccess
+            ? await onSuccess?.()
+            : await router.push('/operation/mini-users');
+        }
         // }
 
         // if (userInfo?.realName) {

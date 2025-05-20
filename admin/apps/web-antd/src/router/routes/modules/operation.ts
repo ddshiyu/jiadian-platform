@@ -14,6 +14,7 @@ const routes: RouteRecordRaw[] = [
       {
         meta: {
           title: '用户管理',
+          authority: ['admin'],
         },
         name: 'users',
         path: '/operation/users',
@@ -92,6 +93,7 @@ const routes: RouteRecordRaw[] = [
       keepAlive: false,
       order: 4000,
       title: '佣金管理',
+      authority: ['admin'],
     },
     name: 'Commission',
     path: '/commission',

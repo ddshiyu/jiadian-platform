@@ -8,6 +8,7 @@ const { Op } = require('sequelize');
 const sequelize = require('../../config/database');
 const fs = require('fs');
 const WxPay = require('wechatpay-node-v3');
+const adminAuth = require('../../middleware/adminAuth');
 // 微信支付实例，放在路由外部全局定义，避免重复创建
 const pay = new WxPay({
   appid: process.env.WECHAT_APPID,
@@ -18,7 +19,7 @@ const pay = new WxPay({
 
 
 // 获取订单列表
-router.get('/', async (req, res) => {
+router.get('/', adminAuth, async (req, res) => {
   try {
     // 使用中间件提供的分页参数获取方法，并指定参数名
     const { page, size, offset } = req.getPaginationParams({
@@ -81,6 +82,11 @@ router.get('/', async (req, res) => {
       };
     }
 
+    // 商家用户只能查看自己的订单
+    if (req.adminRole === 'user') {
+      where.merchantId = req.adminId;
+    }
+
     // 查询订单总数
     const total = await Order.count({ where });
 
@@ -115,6 +121,7 @@ router.get('/', async (req, res) => {
         id: orderData.id,
         orderNo: orderData.orderNo,
         userId: orderData.userId,
+        merchantId: orderData.merchantId,
         totalAmount: orderData.totalAmount,
         status: orderData.status,
         paymentStatus: orderData.paymentStatus,
@@ -164,7 +171,7 @@ router.get('/', async (req, res) => {
 });
 
 // 获取退款订单列表
-router.get('/refunds', async (req, res) => {
+router.get('/refunds', adminAuth, async (req, res) => {
   try {
     // 使用中间件提供的分页参数获取方法
     const { page, size, offset } = req.getPaginationParams({
@@ -178,6 +185,11 @@ router.get('/refunds', async (req, res) => {
         [Op.in]: ['refund_pending', 'refund_approved', 'refund_rejected']
       }
     };
+
+    // 商家用户只能查看自己的退款订单
+    if (req.adminRole === 'user') {
+      where.merchantId = req.adminId;
+    }
 
     // 根据查询参数添加过滤条件
     const { orderNo, userName, status } = req.query;
@@ -289,13 +301,13 @@ router.get('/refunds', async (req, res) => {
 });
 
 // 获取订单详情
-router.get('/:id', async (req, res) => {
+router.get('/:id', adminAuth, async (req, res) => {
   try {
     const order = await Order.findByPk(req.params.id, {
       include: [
         {
           model: User,
-          attributes: ['id', 'nickname', 'phone', 'avatar']
+          attributes: ['id', 'nickname', 'phone']
         },
         {
           model: OrderItem,
@@ -310,57 +322,26 @@ router.get('/:id', async (req, res) => {
     });
 
     if (!order) {
-      return res.status(400).json({ message: '订单不存在' });
+      return res.status(404).json({ message: '订单不存在' });
     }
 
-    // 构造前端需要的数据格式
-    const orderData = order.toJSON();
+    // 商家只能查看自己的订单
+    if (req.adminRole === 'user' && order.merchantId !== req.adminId) {
+      return res.status(403).json({ message: '无权查看该订单' });
+    }
 
-    const formattedOrder = {
-      id: orderData.id,
-      orderNo: orderData.orderNo,
-      userId: orderData.userId,
-      totalAmount: orderData.totalAmount,
-      status: orderData.status,
-      paymentStatus: orderData.paymentStatus,
-      paymentMethod: orderData.paymentMethod,
-      paymentTime: orderData.paymentTime,
-      deliveryTime: orderData.deliveryTime,
-      completionTime: orderData.completionTime,
-      cancelTime: orderData.cancelTime,
-      remark: orderData.remark,
-      address: orderData.address,
-      consignee: orderData.consignee,
-      phone: orderData.phone,
-      orderType: orderData.orderType,
-      createdAt: orderData.createdAt,
-      updatedAt: orderData.updatedAt,
-      user: orderData.User ? {
-        id: orderData.User.id,
-        nickname: orderData.User.nickname,
-        phone: orderData.User.phone,
-        avatar: orderData.User.avatar
-      } : null,
-      items: orderData.OrderItems ? orderData.OrderItems.map(item => ({
-        id: item.id,
-        productId: item.productId,
-        productName: item.Product ? item.Product.name : (item.productName || '未知商品'),
-        price: item.price,
-        quantity: item.quantity,
-        totalAmount: item.price * item.quantity,
-        productCover: item.Product ? item.Product.cover : item.productCover
-      })) : []
-    };
-
-    res.status(200).json(formattedOrder);
+    res.status(200).json(order);
   } catch (error) {
-    console.error('获取订单详情失败:', error.message, error.stack);
-    res.status(400).json({ message: '获取订单详情失败', error: error.message });
+    console.error('获取订单详情失败:', error);
+    res.status(500).json({
+      message: '获取订单详情失败',
+      error: error.message
+    });
   }
 });
 
 // 更新订单状态
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', adminAuth, async (req, res) => {
   try {
     const { status, remark } = req.body;
 
@@ -371,7 +352,12 @@ router.put('/:id/status', async (req, res) => {
     const order = await Order.findByPk(req.params.id);
 
     if (!order) {
-      return res.status(400).json({ message: '订单不存在' });
+      return res.status(404).json({ message: '订单不存在' });
+    }
+
+    // 商家只能更新自己的订单
+    if (req.adminRole === 'user' && order.merchantId !== req.adminId) {
+      return res.status(403).json({ message: '无权更新该订单' });
     }
 
     // 检查订单状态变更的合法性
@@ -458,14 +444,19 @@ router.put('/:id/status', async (req, res) => {
 });
 
 // 更新订单备注
-router.put('/:id/remark', async (req, res) => {
+router.put('/:id/remark', adminAuth, async (req, res) => {
   try {
     const { remark } = req.body;
 
     const order = await Order.findByPk(req.params.id);
 
     if (!order) {
-      return res.status(400).json({ message: '订单不存在' });
+      return res.status(404).json({ message: '订单不存在' });
+    }
+
+    // 商家只能更新自己的订单
+    if (req.adminRole === 'user' && order.merchantId !== req.adminId) {
+      return res.status(403).json({ message: '无权更新该订单' });
     }
 
     order.remark = remark;
@@ -481,19 +472,19 @@ router.put('/:id/remark', async (req, res) => {
   }
 });
 
-// 订单发货
-router.put('/:id/ship', async (req, res) => {
+// 发货
+router.put('/:id/deliver', adminAuth, async (req, res) => {
   try {
-    const { trackingNo, trackingCompany } = req.body;
-
+    const { trackingNumber, trackingCompany } = req.body;
     const order = await Order.findByPk(req.params.id);
 
     if (!order) {
-      return res.status(400).json({ message: '订单不存在' });
+      return res.status(404).json({ message: '订单不存在' });
     }
 
-    if (order.status !== 'pending_delivery') {
-      return res.status(400).json({ message: '只有待发货的订单可以执行发货操作' });
+    // 商家只能为自己的订单发货
+    if (req.adminRole === 'user' && order.merchantId !== req.adminId) {
+      return res.status(403).json({ message: '无权为该订单发货' });
     }
 
     // 更新订单状态为已发货
@@ -516,12 +507,12 @@ router.put('/:id/ship', async (req, res) => {
 });
 
 // 删除订单（软删除或仅供测试环境使用）
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', adminAuth, async (req, res) => {
   try {
     const order = await Order.findByPk(req.params.id);
 
     if (!order) {
-      return res.status(400).json({ message: '订单不存在' });
+      return res.status(404).json({ message: '订单不存在' });
     }
 
     // 考虑实现软删除，而不是直接从数据库删除
@@ -538,32 +529,25 @@ router.delete('/:id', async (req, res) => {
 });
 
 // 处理退款申请
-router.put('/:id/refund', async (req, res) => {
+router.put('/:id/refund', adminAuth, async (req, res) => {
   try {
-    const { status, remark } = req.body;
+    const { action, remark } = req.body;
+    const order = await Order.findByPk(req.params.id);
 
-    if (!status || !['approved', 'rejected'].includes(status)) {
+    if (!order) {
+      return res.status(404).json({ message: '订单不存在' });
+    }
+
+    // 商家只能处理自己的订单退款申请
+    if (req.adminRole === 'user' && order.merchantId !== req.adminId) {
+      return res.status(403).json({ message: '无权处理该订单退款' });
+    }
+
+    if (!action || !['approved', 'rejected'].includes(action)) {
       return res.status(400).json({ message: '请提供有效的处理结果' });
     }
 
-    const order = await Order.findOne({
-      where: {
-        id: req.params.id,
-        status: 'refund_pending'
-      },
-      include: [
-        {
-          model: User,
-          attributes: ['id', 'nickname', 'phone']
-        }
-      ]
-    });
-
-    if (!order) {
-      return res.status(400).json({ message: '订单不存在或状态不正确' });
-    }
-
-    if (status === 'approved') {
+    if (action === 'approved') {
       try {
         // 调用微信支付退款接口
         const refundResult = await pay.refunds({

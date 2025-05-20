@@ -30,14 +30,10 @@ const adminAuth = async (req, res, next) => {
       return res.status(403).json({ message: '账号已被禁用，请联系系统管理员' });
     }
 
-    // 检查角色权限
-    if (!['admin', 'editor'].includes(admin.role) && req.method !== 'GET') {
-      return res.status(403).json({ message: '没有操作权限' });
-    }
-
     // 将管理员信息添加到request对象
     req.admin = admin;
     req.adminId = admin.id;
+    req.adminRole = admin.role;
 
     next();
   } catch (error) {

@@ -6,6 +6,7 @@
  * 字段说明：
  * - orderNo: 订单编号
  * - userId: 用户ID
+ * - merchantId: 商家ID（关联到AdminUser）
  * - totalAmount: 订单总金额
  * - status: 订单状态（待付款、待发货、已发货、已完成、已取消、退款中、退款通过、退款拒绝）
  * - paymentStatus: 支付状态（未支付、已支付、已退款）
@@ -27,6 +28,7 @@
  *
  * 关联关系：
  * - 订单属于一个用户(User)
+ * - 订单属于一个商家(AdminUser)
  * - 一个订单包含多个订单项(OrderItem)
  *
  * 核心方法：
@@ -55,6 +57,12 @@ const Order = sequelize.define("Order", {
     allowNull: false,
     comment: '用户ID',
     // 显式禁用索引，减少索引总数
+    index: false
+  },
+  merchantId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    comment: '商家ID（关联到AdminUser）',
     index: false
   },
   totalAmount: {
@@ -172,6 +180,10 @@ const Order = sequelize.define("Order", {
       fields: ['userId']
     },
     {
+      name: 'merchant_id_index',
+      fields: ['merchantId']
+    },
+    {
       name: 'status_index',
       fields: ['status']
     }
@@ -183,6 +195,7 @@ const setupAssociations = () => {
   const User = require("./User");
   const OrderItem = require("./OrderItem");
   const Product = require("./Product");
+  const { AdminUser } = require("./admin");
 
   // 与用户的关联关系
   Order.belongsTo(User, {
@@ -191,6 +204,17 @@ const setupAssociations = () => {
   });
   User.hasMany(Order, {
     foreignKey: 'userId'
+  });
+
+  // 与商家的关联关系
+  Order.belongsTo(AdminUser, {
+    as: 'merchant',
+    foreignKey: 'merchantId',
+    onDelete: 'NO ACTION'
+  });
+  AdminUser.hasMany(Order, {
+    as: 'orders',
+    foreignKey: 'merchantId'
   });
 
   // 与订单项的关联关系
@@ -309,6 +333,18 @@ const syncOrderTable = async (retries = 5, delay = 2000) => {
 
   while (attempt < retries) {
     try {
+      // 尝试直接执行SQL添加 merchantId 列
+      try {
+        await sequelize.query(`
+          ALTER TABLE Orders
+          ADD COLUMN merchantId INT NOT NULL DEFAULT 1 AFTER userId
+        `);
+        console.log("已添加 merchantId 列到订单表");
+      } catch (columnError) {
+        // 如果列已存在，会报错，但不影响后续操作
+        console.log("merchantId 列可能已存在:", columnError.message);
+      }
+
       // 使用force: false和alter: true选项，确保不会删除现有数据
       await Order.sync({ alter: true, force: false });
       console.log("订单表结构已同步");
@@ -327,6 +363,7 @@ const syncOrderTable = async (retries = 5, delay = 2000) => {
             \`id\` INTEGER NOT NULL auto_increment ,
             \`orderNo\` VARCHAR(255) NOT NULL,
             \`userId\` INTEGER NOT NULL,
+            \`merchantId\` INTEGER NOT NULL,
             \`totalAmount\` DECIMAL(10,2) NOT NULL,
             \`status\` VARCHAR(20) NOT NULL DEFAULT 'pending_payment',
             \`paymentStatus\` VARCHAR(10) NOT NULL DEFAULT 'unpaid',
@@ -350,6 +387,7 @@ const syncOrderTable = async (retries = 5, delay = 2000) => {
             PRIMARY KEY (\`id\`),
             UNIQUE INDEX \`orderNo\` (\`orderNo\`),
             INDEX \`userId\` (\`userId\`),
+            INDEX \`merchantId\` (\`merchantId\`),
             INDEX \`status\` (\`status\`)
           ) ENGINE=InnoDB;
           `;
