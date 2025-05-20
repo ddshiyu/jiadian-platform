@@ -24,7 +24,6 @@ import {
   Select,
   SelectOption,
   Space,
-  Statistic,
   Table,
   Tag,
   Tooltip,
@@ -35,7 +34,6 @@ import {
   createAdminUserApi,
   getAdminUserDetailApi,
   getAdminUserListApi,
-  getAdminUserStatisticsSummaryApi,
   resetAdminUserPasswordApi,
   updateAdminUserApi,
   updateAdminUserStatusApi,
@@ -110,14 +108,6 @@ const searchForm = reactive<SearchForm>({
 
 // 日期范围选择
 const dateRange = ref<[Dayjs, Dayjs] | undefined>(undefined);
-
-// 用户统计数据
-const statistics = ref({
-  totalCount: 0,
-  todayNewUsers: 0,
-  monthNewUsers: 0,
-  activeUserCount: 0,
-});
 
 // 详情弹窗控制
 const detailVisible = ref(false);
@@ -220,17 +210,6 @@ const fetchData = async () => {
     pagination.total = 0;
   } finally {
     loading.value = false;
-  }
-};
-
-// 获取用户统计数据
-const fetchStatistics = async () => {
-  try {
-    const res = await getAdminUserStatisticsSummaryApi();
-    statistics.value = res;
-  } catch (error: any) {
-    console.error('获取用户统计数据失败:', error);
-    message.error(`获取用户统计数据失败: ${error.message || '未知错误'}`);
   }
 };
 
@@ -426,22 +405,11 @@ const formatDate = (date: string) => {
 // 初始化
 onMounted(() => {
   fetchData();
-  fetchStatistics();
 });
 </script>
 
 <template>
   <div>
-    <!-- 统计信息 -->
-    <Card :bordered="false" class="mb-20">
-      <div class="statistics-container">
-        <Statistic title="用户总数" :value="statistics.totalCount" />
-        <Statistic title="今日新增" :value="statistics.todayNewUsers" />
-        <Statistic title="本月新增" :value="statistics.monthNewUsers" />
-        <Statistic title="活跃用户" :value="statistics.activeUserCount" />
-      </div>
-    </Card>
-
     <!-- 搜索表单 -->
     <Card :bordered="false" class="mb-20">
       <Form

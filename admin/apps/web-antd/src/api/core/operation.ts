@@ -1,5 +1,18 @@
 import { requestClient } from '#/api/request';
 // 用户管理相关接口
+export interface MiniAppUserStatistics {
+  totalCount: number;
+  todayNewUsers: number;
+  monthNewUsers: number;
+  activeUserCount: number;
+}
+
+export async function getMiniAppUserStatisticsApi() {
+  return requestClient.get<MiniAppUserStatistics>(
+    '/admin/users/statistics/summary',
+  );
+}
+
 export interface MiniAppUser {
   cardId: number;
   userId: number;
