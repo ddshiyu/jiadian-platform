@@ -41,7 +41,7 @@ router.get('/', adminAuth, async (req, res) => {
     }
 
     // 角色筛选
-    if (role && ['admin', 'editor', 'viewer'].includes(role)) {
+    if (role && ['admin', 'user'].includes(role)) {
       where.role = role;
     }
 
@@ -120,7 +120,7 @@ router.get('/:id', adminAuth, async (req, res) => {
  */
 router.post('/', adminAuth, async (req, res) => {
   try {
-    const { username, password, name, email, role, status } = req.body;
+    const { username, password, name, email, phone, role, status } = req.body;
 
     // 验证必填字段
     if (!username || !password || !name) {
@@ -134,7 +134,7 @@ router.post('/', adminAuth, async (req, res) => {
     }
 
     // 验证角色
-    if (role && !['admin', 'editor', 'viewer'].includes(role)) {
+    if (role && !['admin', 'user'].includes(role)) {
       return res.status(400).json({ message: '无效的角色类型' });
     }
 
@@ -149,7 +149,8 @@ router.post('/', adminAuth, async (req, res) => {
       password, // 密码会在模型的钩子中自动加密
       name,
       email,
-      role: role || 'editor',
+      phone,
+      role: role || 'user',
       status: status || 'active'
     });
 
@@ -170,7 +171,7 @@ router.post('/', adminAuth, async (req, res) => {
  */
 router.put('/:id', adminAuth, async (req, res) => {
   try {
-    const { name, email, role, status } = req.body;
+    const { name, email, phone, role, status } = req.body;
     const user = await AdminUser.findByPk(req.params.id);
 
     if (!user) {
@@ -194,7 +195,7 @@ router.put('/:id', adminAuth, async (req, res) => {
     }
 
     // 验证角色
-    if (role && !['admin', 'editor', 'viewer'].includes(role)) {
+    if (role && !['admin', 'user'].includes(role)) {
       return res.status(400).json({ message: '无效的角色类型' });
     }
 
@@ -206,6 +207,7 @@ router.put('/:id', adminAuth, async (req, res) => {
     // 更新管理员信息
     if (name !== undefined) user.name = name;
     if (email !== undefined) user.email = email;
+    if (phone !== undefined) user.phone = phone;
     if (role !== undefined) user.role = role;
     if (status !== undefined) user.status = status;
 

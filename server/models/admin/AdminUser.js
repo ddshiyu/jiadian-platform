@@ -8,7 +8,8 @@
  * - password: 管理员密码（自动哈希加密处理）
  * - name: 管理员姓名
  * - email: 管理员电子邮箱
- * - role: 管理员角色（admin-超级管理员、editor-编辑、viewer-查看者）
+ * - phone: 管理员手机号码
+ * - role: 管理员角色（admin-超级管理员，拥有所有权限；user-商家用户，可以发布产品和管理自己的订单）
  * - status: 账号状态（active-激活、inactive-未激活）
  *
  * 核心方法：
@@ -46,10 +47,18 @@ const AdminUser = sequelize.define("AdminUser", {
       isEmail: true
     }
   },
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    validate: {
+      is: /^1[3-9]\d{9}$/  // 验证中国大陆手机号格式
+    }
+  },
   role: {
-    type: DataTypes.ENUM("admin", "editor", "viewer"),
+    type: DataTypes.ENUM("admin", "user"),
     allowNull: false,
-    defaultValue: "admin"
+    defaultValue: "user",
+    comment: "admin-超级管理员，拥有所有权限；user-商家用户，可以发布产品和管理自己的订单"
   },
   status: {
     type: DataTypes.ENUM("active", "inactive"),
@@ -72,6 +81,9 @@ const syncAdminUserTable = async (retries = 5, delay = 2000) => {
 
   while (attempt < retries) {
     try {
+      // 先执行数据迁移
+      await migrateRoleData();
+
       // 使用force: false和alter: true选项，确保不会删除现有数据
       await AdminUser.sync({ alter: true });
       console.log("管理员用户表结构已同步");
@@ -91,12 +103,28 @@ const syncAdminUserTable = async (retries = 5, delay = 2000) => {
   }
 };
 
+// 数据迁移函数：将editor和viewer角色转换为user
+const migrateRoleData = async () => {
+  try {
+    // 使用原始SQL查询来更新角色
+    await sequelize.query(`
+      UPDATE AdminUsers
+      SET role = 'user'
+      WHERE role IN ('editor', 'viewer')
+    `);
+    console.log("角色数据迁移完成");
+  } catch (error) {
+    console.error("角色数据迁移失败:", error);
+    throw error;
+  }
+};
+
 // 导出模型
 module.exports = AdminUser;
 
 // 设置延迟同步，避免与其他模型同时同步引起冲突
-// setTimeout(() => {
-//   syncAdminUserTable().catch(err => {
-//     console.error("管理员用户表同步最终失败:", err);
-//   });
-// }, 1500);
+setTimeout(() => {
+  // syncAdminUserTable().catch(err => {
+  //   console.error("管理员用户表同步最终失败:", err);
+  // });
+}, 1500);
