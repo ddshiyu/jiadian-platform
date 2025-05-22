@@ -134,6 +134,7 @@ router.post('/', async (req, res) => {
       {
         orderNo,
         userId,
+        merchantId: productDetails[0].product.merchantId,
         totalAmount,
         status: 'pending_payment',
         paymentStatus: 'unpaid',

@@ -563,6 +563,7 @@ router.post('/checkout', auth, async (req, res) => {
       const order = await Order.create({
         orderNo,
         userId,
+        merchantId: cartItems[0].Product.merchantId, // 从第一个商品中获取商家ID
         totalAmount,
         status: 'pending_payment',
         paymentStatus: 'unpaid',

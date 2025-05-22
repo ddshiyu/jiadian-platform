@@ -440,6 +440,7 @@ router.post('/pre-order', auth, async (req, res) => {
     const order = await Order.create({
       orderNo,
       userId,
+      merchantId: product.merchantId, // 从产品中获取商家ID
       totalAmount,
       status: 'pending_payment',
       paymentStatus: 'unpaid',

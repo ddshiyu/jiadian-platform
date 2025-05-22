@@ -241,6 +241,18 @@ Order.createOrder = async function(orderData, orderItems) {
   const transaction = await sequelize.transaction();
 
   try {
+    // 确保有merchantId
+    if (!orderData.merchantId && orderItems && orderItems.length > 0) {
+      // 如果没有提供merchantId，尝试从第一个订单项的商品中获取
+      const Product = require('./Product');
+      const product = await Product.findByPk(orderItems[0].productId, { transaction });
+      if (product) {
+        orderData.merchantId = product.merchantId;
+      } else {
+        throw new Error('无法确定订单的商家ID');
+      }
+    }
+
     // 创建订单
     const order = await Order.create(orderData, { transaction });
 
