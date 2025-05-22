@@ -87,6 +87,7 @@ provide('userInfo', userInfo);
 // 应用启动时获取用户信息
 onLaunch(() => {
 	console.log('App Launch');
+	console.log(import.meta.env.VITE_APP_BASE_API)
 	// 调用获取用户信息接口
 	getUserInfo();
 });

@@ -3,6 +3,8 @@ const router = express.Router();
 const { Order, OrderItem, Product, User, Commission } = require('../models');
 const sequelize = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const { pay } = require('../utils');
+
 
 // 获取用户订单列表
 router.get('/', async (req, res) => {
@@ -233,45 +235,68 @@ router.put('/:id/cancel', async (req, res) => {
   }
 });
 
-// 模拟支付完成
+// 真实支付（使用微信支付）
 router.put('/:id/pay', async (req, res) => {
-  // 开启事务
-  const t = await sequelize.transaction();
-
   try {
     const userId = req.user.id;
 
+    // 查找订单
     const order = await Order.findOne({
       where: {
         id: req.params.id,
         userId,
         status: 'pending_payment'
       },
-      transaction: t
+      attributes: [
+        'id', 'orderNo', 'totalAmount', 'status',
+        'paymentStatus', 'orderType'
+      ],
+      include: [{
+        model: OrderItem,
+        include: [{
+          model: Product,
+          attributes: ['id', 'name']
+        }]
+      }]
     });
 
     if (!order) {
-      await t.rollback();
-      return res.status(400).json({ message: '订单不存在或状态不正确' });
+      return res.status(404).json({ message: '订单不存在或状态不正确' });
     }
 
-    // 更新订单状态
-    order.status = 'pending_delivery';
-    order.paymentStatus = 'paid';
-    order.paymentMethod = 'wechat';
-    order.paymentTime = new Date();
-    order.transactionId = `wx_${uuidv4()}`;
-    await order.save({ transaction: t });
 
-    // 提交事务
-    await t.commit();
 
-    res.status(200).json({ message: '支付成功', order });
+    // 构建微信支付参数
+    const params = {
+      description: order.orderType === 'normal' ?
+        `购买商品: ${order.OrderItems[0]?.productName || '未知商品'}` :
+        `订单支付: ${order.orderNo}`,
+      out_trade_no: order.orderNo,
+      notify_url: `${process.env.WECHAT_SUCCESSCALLBACK || 'http://localhost:3000'}/products/notify`,
+      amount: {
+        total: Math.floor(order.totalAmount * 100), // 单位为分
+      },
+      payer: {
+        openid: req.user.openid, // 从用户认证信息中获取
+      }
+    };
+
+    // 调用微信支付JSAPI下单
+    const payResult = await pay.transactions_jsapi(params);
+
+    // 返回支付参数给客户端
+    res.status(200).json({
+      success: true,
+      payParams: payResult?.data ? payResult.data : payResult,
+      orderInfo: {
+        orderId: order.id,
+        orderNo: order.orderNo,
+        totalAmount: order.totalAmount
+      }
+    });
   } catch (error) {
-    // 回滚事务
-    await t.rollback();
-    console.error('支付订单失败:', error);
-    res.status(400).json({ message: '支付订单失败' });
+    console.error('微信支付下单失败:', error);
+    res.status(400).json({ message: '微信支付下单失败', error: error.message });
   }
 });
 

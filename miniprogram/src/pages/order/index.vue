@@ -115,7 +115,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
 import { orderApi } from '../../api/order';
 
@@ -308,19 +308,63 @@ const payOrder = async (orderId) => {
       title: '正在处理'
     });
     
+    // 获取订单详情，确保获取最新状态
+    const detailRes = await orderApi.getDetail(orderId);
+    
+    if (!detailRes || detailRes.code !== 0 || !detailRes.data) {
+      throw new Error('获取订单信息失败');
+    }
+    
+    // 检查订单状态，避免重复支付
+    if (detailRes.data.status !== 'pending_payment') {
+      throw new Error('该订单状态不允许支付');
+    }
+    
+    // 调用支付接口
     const res = await orderApi.pay(orderId);
     
     if (res && res.code === 0) {
       uni.hideLoading();
-      uni.showToast({
-        title: '支付成功',
-        icon: 'success'
-      });
       
-      // 刷新订单列表
-      setTimeout(() => {
-        fetchOrderList();
-      }, 1000);
+      // 如果后端返回了支付参数，调用微信支付
+      if (res.data && res.data.payParams) {
+        uni.requestPayment({
+          ...res.data.payParams,
+          success: () => {
+            uni.showToast({
+              title: '支付成功',
+              icon: 'success'
+            });
+            // 刷新订单列表
+            fetchOrderList();
+          },
+          fail: (err) => {
+            console.error('支付失败:', err);
+            if (err.errMsg === 'requestPayment:fail cancel') {
+              uni.showToast({
+                title: '支付已取消',
+                icon: 'none'
+              });
+            } else {
+              uni.showToast({
+                title: '支付失败',
+                icon: 'none'
+              });
+            }
+          }
+        });
+      } else {
+        // 如果没有支付参数（模拟支付情况），直接显示成功
+        uni.showToast({
+          title: '支付成功',
+          icon: 'success'
+        });
+        
+        // 刷新订单列表
+        setTimeout(() => {
+          fetchOrderList();
+        }, 1000);
+      }
     } else {
       throw new Error(res?.message || '支付失败');
     }
