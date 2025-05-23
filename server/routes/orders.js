@@ -52,7 +52,8 @@ router.get('/', async (req, res) => {
       attributes: [
         'id', 'orderNo', 'totalAmount', 'status',
         'paymentStatus', 'orderType', 'createdAt', 'updatedAt',
-        'consignee', 'phone', 'address', 'remark'
+        'consignee', 'phone', 'address', 'remark',
+        'trackingNumber', 'trackingCompany', 'deliveryImages', 'deliveryTime'
       ],
       include: [
         {
@@ -530,6 +531,12 @@ router.get('/:id', async (req, res) => {
         id: req.params.id,
         userId
       },
+      attributes: [
+        'id', 'orderNo', 'totalAmount', 'status', 'paymentStatus',
+        'orderType', 'createdAt', 'updatedAt', 'consignee', 'phone',
+        'address', 'remark', 'paymentTime', 'deliveryTime', 'completionTime',
+        'trackingNumber', 'trackingCompany', 'deliveryImages'
+      ],
       include: [
         {
           model: OrderItem,

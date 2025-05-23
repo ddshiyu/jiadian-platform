@@ -52,6 +52,27 @@
             </view>
           </view>
           
+          <!-- 发货信息 -->
+          <view v-if="order.status === 'delivered' && order.deliveryInfo.hasDeliveryInfo" class="delivery-info">
+            <view class="delivery-header">
+              <nut-icon name="logistics" size="16" color="#666"></nut-icon>
+              <text class="delivery-title">发货信息</text>
+            </view>
+            <view v-if="order.deliveryInfo.trackingCompany" class="delivery-item">
+              <text class="delivery-label">物流公司:</text>
+              <text class="delivery-value">{{ order.deliveryInfo.trackingCompany }}</text>
+            </view>
+            <view v-if="order.deliveryInfo.trackingNumber" class="delivery-item">
+              <text class="delivery-label">运单编号:</text>
+              <text class="delivery-value">{{ order.deliveryInfo.trackingNumber }}</text>
+              <text class="copy-btn" @click.stop="copyTrackingNumber(order.deliveryInfo.trackingNumber)">复制</text>
+            </view>
+            <view v-if="order.deliveryInfo.deliveryTime" class="delivery-item">
+              <text class="delivery-label">发货时间:</text>
+              <text class="delivery-value">{{ order.deliveryInfo.deliveryTime }}</text>
+            </view>
+          </view>
+          
           <view class="order-footer">
             <view class="order-total">
               <text>共{{ getTotalCount(order.products) }}件商品</text>
@@ -75,6 +96,15 @@
                 @click="confirmReceive(order.id)"
               >
                 确认收货
+              </nut-button>
+              
+              <nut-button 
+                v-if="order.status === 'delivered' && order.deliveryInfo.hasDeliveryInfo" 
+                plain 
+                size="small"
+                @click.stop="checkLogistics(order.deliveryInfo.trackingNumber, order.deliveryInfo.trackingCompany)"
+              >
+                查看物流
               </nut-button>
               
               <nut-button 
@@ -248,13 +278,22 @@ const formatOrderData = (orders) => {
       };
     });
     
+    // 处理发货信息
+    const deliveryInfo = {
+      trackingNumber: order.trackingNumber || '',
+      trackingCompany: order.trackingCompany || '',
+      deliveryTime: order.deliveryTime ? formatDate(order.deliveryTime) : '',
+      hasDeliveryInfo: !!(order.trackingNumber || order.trackingCompany)
+    };
+    
     return {
       id: order.id,
       orderNo: order.orderNo,
       status: order.status,
       totalAmount: order.totalAmount,
       createTime: formatDate(order.createdAt),
-      products: products
+      products: products,
+      deliveryInfo: deliveryInfo
     };
   });
 };
@@ -541,6 +580,57 @@ const applyRefund = (orderId) => {
     }
   });
 };
+
+// 复制物流单号
+const copyTrackingNumber = (trackingNumber) => {
+  if (!trackingNumber) {
+    uni.showToast({
+      title: '运单号为空',
+      icon: 'none'
+    });
+    return;
+  }
+  
+  uni.setClipboardData({
+    data: trackingNumber,
+    success: () => {
+      uni.showToast({
+        title: '已复制运单号',
+        icon: 'success'
+      });
+    }
+  });
+};
+
+// 查看物流
+const checkLogistics = (trackingNumber, trackingCompany) => {
+  if (!trackingNumber) {
+    uni.showToast({
+      title: '运单号为空，无法查询',
+      icon: 'none'
+    });
+    return;
+  }
+  
+  uni.showModal({
+    title: '物流信息',
+    content: `物流公司: ${trackingCompany}\n运单编号: ${trackingNumber}\n\n请复制运单号到物流公司官网查询`,
+    confirmText: '复制单号',
+    success: (res) => {
+      if (res.confirm) {
+        uni.setClipboardData({
+          data: trackingNumber,
+          success: () => {
+            uni.showToast({
+              title: '已复制运单号',
+              icon: 'success'
+            });
+          }
+        });
+      }
+    }
+  });
+};
 </script>
 
 <style lang="scss">
@@ -767,5 +857,57 @@ const applyRefund = (orderId) => {
   font-size: 28rpx;
   color: #999;
   margin-top: 20rpx;
+}
+
+.delivery-info {
+  margin: 10rpx 20rpx;
+  padding: 20rpx;
+  background-color: #f9f9f9;
+  border-radius: 8rpx;
+  border: 1rpx dashed #ddd;
+}
+
+.delivery-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15rpx;
+  border-bottom: 1rpx solid #eee;
+  padding-bottom: 10rpx;
+}
+
+.delivery-title {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: bold;
+  margin-left: 10rpx;
+}
+
+.delivery-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+  font-size: 24rpx;
+}
+
+.delivery-label {
+  color: #666;
+  width: 140rpx;
+  flex-shrink: 0;
+}
+
+.delivery-value {
+  color: #333;
+  flex: 1;
+  word-break: break-all;
+}
+
+.copy-btn {
+  font-size: 22rpx;
+  color: #E31D1A;
+  padding: 4rpx 12rpx;
+  border: 1rpx solid #E31D1A;
+  border-radius: 20rpx;
+  margin-left: 10rpx;
+  flex-shrink: 0;
 }
 </style> 
