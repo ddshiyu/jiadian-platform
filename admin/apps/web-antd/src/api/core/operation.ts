@@ -385,15 +385,15 @@ export function getRefundOrderListApi(params: OrderListParams) {
 /**
  * 处理退款申请
  * @param id 订单ID
- * @param status 处理结果: 'approved' 通过, 'rejected' 拒绝
+ * @param action 处理结果: 'approved' 通过, 'rejected' 拒绝
  * @param remark 处理备注
  */
 export function handleRefundApi(
   id: number,
-  status: 'approved' | 'rejected',
+  action: 'approved' | 'rejected',
   remark?: string,
 ) {
-  const data: { remark?: string; status: string } = { status };
+  const data: { action: string; remark?: string } = { action };
   if (remark) {
     data.remark = remark;
   }

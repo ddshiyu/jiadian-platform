@@ -570,19 +570,13 @@ const confirmStatus = async () => {
     await statusFormRef.value.validate();
     submitLoading.value = true;
 
-    const data: {
-      remark?: string;
-      status: 'approved' | 'rejected';
-    } = {
-      status: statusForm.status as 'approved' | 'rejected',
-    };
+    // 后端API期望的参数名是action
+    const action = statusForm.status as 'approved' | 'rejected';
 
     // 只有在有备注内容时才传入remark参数
-    if (statusForm.remark) {
-      data.remark = statusForm.remark;
-    }
+    const remark = statusForm.remark || undefined;
 
-    await handleRefundApi(statusForm.orderId, data.status, data.remark);
+    await handleRefundApi(statusForm.orderId, action, remark);
 
     message.success(
       statusForm.status === 'approved' ? '退款申请已通过' : '退款申请已拒绝',
@@ -939,7 +933,7 @@ onMounted(() => {
             {{ formatDate(currentOrder.createdAt) }}
           </DescriptionsItem>
           <DescriptionsItem label="用户">
-            {{ currentOrder.user.nickname }}
+            {{ currentOrder?.User?.nickname }}
           </DescriptionsItem>
           <DescriptionsItem label="总金额">
             ¥{{ Number(currentOrder.totalAmount).toFixed(2) }}
