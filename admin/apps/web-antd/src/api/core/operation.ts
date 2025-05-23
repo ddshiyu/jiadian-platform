@@ -393,7 +393,7 @@ export function handleRefundApi(
   action: 'approved' | 'rejected',
   remark?: string,
 ) {
-  const data: { action: string; remark?: string } = { action };
+  const data: { remark?: string; status: string } = { status: action };
   if (remark) {
     data.remark = remark;
   }
