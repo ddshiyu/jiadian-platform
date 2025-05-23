@@ -1,13 +1,16 @@
 <script lang="ts" setup>
 import type { FormInstance, TablePaginationConfig } from 'ant-design-vue';
 import type { RuleObject } from 'ant-design-vue/es/form/interface';
+import type { UploadFile } from 'ant-design-vue/lib/upload/interface';
 import type { Dayjs } from 'dayjs';
 
 import type { Order, OrderListParams } from '#/api/core/operation';
 
 import { onMounted, reactive, ref } from 'vue';
 
-import { ReloadOutlined } from '@ant-design/icons-vue';
+import { useAccessStore } from '@vben/stores';
+
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons-vue';
 import {
   Button,
   Card,
@@ -30,6 +33,7 @@ import {
   Tag,
   Textarea,
   Tooltip,
+  Upload,
 } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
@@ -44,7 +48,7 @@ import {
 } from '#/api/core/operation';
 
 const { RangePicker } = DatePicker;
-
+const accessStore = useAccessStore();
 // 表格列定义
 const columns = [
   {
@@ -171,6 +175,7 @@ const shipForm = reactive({
   orderId: 0,
   trackingNumber: '',
   trackingCompany: '',
+  deliveryImages: [] as string[],
 });
 const shipFormRef = ref<FormInstance | null>(null);
 const shipFormRules = {
@@ -190,6 +195,57 @@ const shipFormRules = {
       type: 'string',
     },
   ] as RuleObject[],
+};
+
+interface FileItem extends UploadFile {
+  url: string;
+}
+
+// 图片上传相关
+const deliveryImageFileList = ref<FileItem[]>([]);
+const uploadHeaders = {
+  Authorization: `Bearer ${accessStore.accessToken}`,
+};
+const uploadUrl = `${import.meta.env.VITE_BASE_URL}/upload/image`;
+
+// 处理上传前校验
+const beforeUpload = (file: any) => {
+  const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png';
+  if (!isJpgOrPng) {
+    message.error('只能上传JPG或PNG格式的图片!');
+  }
+  const isLt2M = file.size / 1024 / 1024 < 2;
+  if (!isLt2M) {
+    message.error('图片大小不能超过2MB!');
+  }
+  return isJpgOrPng && isLt2M;
+};
+
+// 处理上传图片变化
+const handleDeliveryImagesChange = (info: any) => {
+  // 限制最多5张图片
+  const fileList = [...info.fileList].slice(0, 5);
+  deliveryImageFileList.value = fileList;
+
+  // 处理上传完成的情况
+  if (info.file.status === 'done') {
+    const response = info.file.response;
+    if (response && response.code === 0) {
+      // 更新shipForm中的deliveryImages数组
+      shipForm.deliveryImages = deliveryImageFileList.value
+        .filter((file) => file.response?.data?.image?.url || file.url)
+        .map(
+          (file) =>
+            `${import.meta.env.VITE_BASE_URL}${file.response?.data?.image?.url}`,
+        );
+
+      message.success(`${info.file.name} 上传成功`);
+    } else {
+      message.error(`${info.file.name} 上传失败`);
+    }
+  } else if (info.file.status === 'error') {
+    message.error(`${info.file.name} 上传失败`);
+  }
 };
 
 // 状态表单控制
@@ -516,6 +572,8 @@ const handleShip = (record: any) => {
   shipForm.orderId = record.id;
   shipForm.trackingNumber = '';
   shipForm.trackingCompany = '';
+  shipForm.deliveryImages = [];
+  deliveryImageFileList.value = [];
   shipVisible.value = true;
 };
 
@@ -532,10 +590,12 @@ const confirmShip = async () => {
     await shipFormRef.value.validate();
     submitLoading.value = true;
 
+    // 传递三个必要参数以及发货图片数组
     await shipOrderApi(
       shipForm.orderId,
       shipForm.trackingNumber,
       shipForm.trackingCompany,
+      shipForm.deliveryImages,
     );
 
     message.success('发货成功');
@@ -549,7 +609,7 @@ const confirmShip = async () => {
   }
 };
 
-// 处理退款申请
+// 获取token
 const handleRefund = (record: any) => {
   statusForm.orderId = record.id;
   statusForm.status = '';
@@ -1084,6 +1144,28 @@ onMounted(() => {
             placeholder="请输入快递单号"
           />
         </FormItem>
+        <FormItem label="发货图片">
+          <Upload
+            v-model:file-list="deliveryImageFileList"
+            list-type="picture-card"
+            :action="uploadUrl"
+            :headers="uploadHeaders"
+            name="image"
+            :before-upload="beforeUpload"
+            @change="handleDeliveryImagesChange"
+          >
+            <div v-if="deliveryImageFileList.length >= 5">
+              <div>最多上传5张</div>
+            </div>
+            <div v-else>
+              <PlusOutlined />
+              <div style="margin-top: 8px">上传</div>
+            </div>
+          </Upload>
+          <div class="upload-hint">
+            请上传发货图片，最多5张，支持jpg、png格式
+          </div>
+        </FormItem>
       </Form>
     </Modal>
 
@@ -1163,5 +1245,11 @@ onMounted(() => {
     object-fit: cover;
     margin-right: 8px;
   }
+}
+
+.upload-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #999;
 }
 </style>

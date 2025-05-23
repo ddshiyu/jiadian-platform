@@ -342,15 +342,18 @@ export function updateOrderStatusApi(id: number, status: Order['status']) {
  * @param id 订单ID
  * @param trackingNumber 快递单号
  * @param trackingCompany 快递公司
+ * @param deliveryImages 发货图片
  */
 export function shipOrderApi(
   id: number,
   trackingNumber: string,
   trackingCompany: string,
+  deliveryImages?: string[],
 ) {
   return requestClient.put(`/admin/orders/${id}/ship`, {
     trackingNumber,
     trackingCompany,
+    deliveryImages,
   });
 }
 

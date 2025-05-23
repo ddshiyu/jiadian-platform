@@ -13,6 +13,9 @@
  * - paymentMethod: 支付方式
  * - paymentTime: 支付时间
  * - deliveryTime: 发货时间
+ * - trackingNumber: 物流单号
+ * - trackingCompany: 物流公司
+ * - deliveryImages: 发货凭证图片(多张，JSON数组)
  * - completionTime: 完成时间
  * - cancelTime: 取消时间
  * - consignee: 收货人姓名
@@ -102,6 +105,28 @@ const Order = sequelize.define("Order", {
     type: DataTypes.DATE,
     allowNull: true,
     comment: '发货时间'
+  },
+  trackingNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '物流单号'
+  },
+  trackingCompany: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '物流公司'
+  },
+  deliveryImages: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: '发货凭证图片(多张，JSON数组)',
+    get() {
+      const rawValue = this.getDataValue('deliveryImages');
+      return rawValue ? JSON.parse(rawValue) : [];
+    },
+    set(value) {
+      this.setDataValue('deliveryImages', JSON.stringify(value));
+    }
   },
   completionTime: {
     type: DataTypes.DATE,
@@ -382,6 +407,9 @@ const syncOrderTable = async (retries = 5, delay = 2000) => {
             \`paymentMethod\` VARCHAR(255),
             \`paymentTime\` DATETIME,
             \`deliveryTime\` DATETIME,
+            \`trackingNumber\` VARCHAR(255),
+            \`trackingCompany\` VARCHAR(255),
+            \`deliveryImages\` TEXT,
             \`completionTime\` DATETIME,
             \`cancelTime\` DATETIME,
             \`consignee\` VARCHAR(255),

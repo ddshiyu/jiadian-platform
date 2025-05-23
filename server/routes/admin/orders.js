@@ -473,9 +473,9 @@ router.put('/:id/remark', adminAuth, async (req, res) => {
 });
 
 // 发货
-router.put('/:id/deliver', adminAuth, async (req, res) => {
+router.put('/:id/ship', adminAuth, async (req, res) => {
   try {
-    const { trackingNumber, trackingCompany } = req.body;
+    const { trackingNumber, trackingCompany, deliveryImages } = req.body;
     const order = await Order.findByPk(req.params.id);
 
     if (!order) {
@@ -487,18 +487,38 @@ router.put('/:id/deliver', adminAuth, async (req, res) => {
       return res.status(403).json({ message: '无权为该订单发货' });
     }
 
+    // 检查订单状态
+    if (order.status !== 'pending_delivery') {
+      return res.status(400).json({ message: '只有待发货状态的订单可以执行发货操作' });
+    }
+
     // 更新订单状态为已发货
     order.status = 'delivered';
     order.deliveryTime = new Date();
 
-    // 如果系统支持物流追踪，可以添加相关字段
-    // 可以在Order模型中添加trackingNo和trackingCompany字段
+    // 设置物流信息和发货图片
+    if (trackingNumber) order.trackingNumber = trackingNumber;
+    if (trackingCompany) order.trackingCompany = trackingCompany;
+    if (deliveryImages) {
+      // 确保是数组格式
+      const imageArray = Array.isArray(deliveryImages) ? deliveryImages : [deliveryImages];
+      order.deliveryImages = imageArray;
+    }
 
     await order.save();
 
     res.status(200).json({
       message: '订单已发货',
-      status: 'delivered'
+      status: 'delivered',
+      order: {
+        id: order.id,
+        orderNo: order.orderNo,
+        status: order.status,
+        deliveryTime: order.deliveryTime,
+        trackingNumber: order.trackingNumber,
+        trackingCompany: order.trackingCompany,
+        deliveryImages: order.deliveryImages
+      }
     });
   } catch (error) {
     console.error('订单发货失败:', error.message, error.stack);
