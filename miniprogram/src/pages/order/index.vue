@@ -1,17 +1,19 @@
 <template>
   <view class="container">
     <!-- 订单状态导航栏 -->
-    <view class="status-tabs">
-      <view 
-        v-for="(tab, index) in tabs" 
-        :key="index" 
-        class="status-tab"
-        :class="{ active: activeTab === index }"
-        @click="changeTab(index)"
-      >
-        <text>{{ tab.label }}</text>
+    <scroll-view scroll-x class="status-tabs-scroll" show-scrollbar="false">
+      <view class="status-tabs">
+        <view 
+          v-for="(tab, index) in tabs" 
+          :key="index" 
+          class="status-tab"
+          :class="{ active: activeTab === index }"
+          @click="changeTab(index)"
+        >
+          <text>{{ tab.label }}</text>
+        </view>
       </view>
-    </view>
+    </scroll-view>
 
     <!-- 订单列表 -->
     <scroll-view 
@@ -125,7 +127,9 @@ const tabs = [
   { label: '待付款', status: 'pending_payment' },
   { label: '待发货', status: 'pending_delivery' },
   { label: '待收货', status: 'delivered' },
-  { label: '已完成', status: 'completed' }
+  { label: '已完成', status: 'completed' },
+  { label: '已取消', status: 'cancelled' },
+  { label: '退款/售后', status: 'refund' }
 ];
 
 // 当前活动标签
@@ -187,7 +191,12 @@ const fetchOrderList = async () => {
     // 添加状态过滤
     const currentStatus = tabs[activeTab.value].status;
     if (currentStatus) {
-      params.status = currentStatus;
+      if (currentStatus === 'refund') {
+        // 退款/售后 tab 需要查询所有退款相关状态
+        params.status = ['refund_pending', 'refund_approved', 'refund_rejected'];
+      } else {
+        params.status = currentStatus;
+      }
     }
     
     // 调用API获取订单列表
@@ -544,17 +553,26 @@ const applyRefund = (orderId) => {
   overflow: hidden; /* 防止内容溢出 */
 }
 
-.status-tabs {
+.status-tabs-scroll {
   display: flex;
   background-color: #fff;
-  padding: 0 10rpx;
+  width: 100%;
   position: sticky;
   top: 0;
   z-index: 10;
+  box-sizing: border-box;
+}
+
+.status-tabs {
+  display: flex;
+  background-color: #fff;
+  white-space: nowrap;
+  padding: 0 10rpx;
 }
 
 .status-tab {
-  flex: 1;
+  padding: 0 20rpx;
+  min-width: 120rpx;
   height: 80rpx;
   display: flex;
   justify-content: center;

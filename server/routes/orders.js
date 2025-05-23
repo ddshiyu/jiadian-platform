@@ -4,6 +4,7 @@ const { Order, OrderItem, Product, User, Commission } = require('../models');
 const sequelize = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const { pay } = require('../utils');
+const { Op } = require('sequelize');
 
 
 // 获取用户订单列表
@@ -21,9 +22,23 @@ router.get('/', async (req, res) => {
 
     // 构建查询条件
     const where = { userId };
+
+    // 处理状态查询参数，支持多个状态
     if (status) {
-      where.status = status;
+      try {
+        // 尝试解析状态参数，可能是数组格式的字符串或单个状态
+        const parsedStatus = JSON.parse(status);
+        if (Array.isArray(parsedStatus) && parsedStatus.length > 0) {
+          where.status = { [Op.in]: parsedStatus };
+        } else {
+          where.status = status;
+        }
+      } catch (e) {
+        // 如果不是JSON格式，视为单个状态
+        where.status = status;
+      }
     }
+
     if (orderType) {
       where.orderType = orderType;
     }
