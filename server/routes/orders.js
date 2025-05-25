@@ -389,6 +389,8 @@ router.put('/:id/ship', async (req, res) => {
       return res.status(403).json({ message: '没有权限' });
     }
 
+    const { trackingNumber, trackingCompany, deliveryImages } = req.body;
+
     const order = await Order.findOne({
       where: {
         id: req.params.id,
@@ -402,9 +404,31 @@ router.put('/:id/ship', async (req, res) => {
 
     // 更新订单状态
     order.status = 'delivered';
+    order.deliveryTime = new Date();
+
+    // 设置物流信息和发货图片
+    if (trackingNumber) order.trackingNumber = trackingNumber;
+    if (trackingCompany) order.trackingCompany = trackingCompany;
+    if (deliveryImages) {
+      // 确保是数组格式
+      const imageArray = Array.isArray(deliveryImages) ? deliveryImages : [deliveryImages];
+      order.deliveryImages = imageArray;
+    }
+
     await order.save();
 
-    res.status(200).json({ message: '订单已发货', order });
+    res.status(200).json({
+      message: '订单已发货',
+      order: {
+        id: order.id,
+        orderNo: order.orderNo,
+        status: order.status,
+        deliveryTime: order.deliveryTime,
+        trackingNumber: order.trackingNumber,
+        trackingCompany: order.trackingCompany,
+        deliveryImages: order.deliveryImages
+      }
+    });
   } catch (error) {
     console.error('发货失败:', error);
     res.status(400).json({ message: '发货失败' });

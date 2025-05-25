@@ -382,6 +382,7 @@ router.post('/join-vip', auth, async (req, res) => {
     const order = await Order.create({
       orderNo,
       userId,
+      merchantId: 1, // 添加默认商家ID，VIP订单可以关联到平台管理员
       totalAmount: amount,
       status: 'pending_payment',
       paymentStatus: 'unpaid',
