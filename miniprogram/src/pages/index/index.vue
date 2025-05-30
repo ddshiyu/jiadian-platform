@@ -86,11 +86,47 @@
         </view>
       </view>
     </nut-popup>
+
+    <!-- 公告弹窗 -->
+    <nut-popup v-model:visible="showAnnouncementPopup" position="center" round>
+      <view class="announcement-popup">
+        <view class="announcement-header">
+          <nut-icon name="notice" size="24" color="#E31D1A"></nut-icon>
+          <text class="announcement-title">系统公告</text>
+          <nut-icon
+            name="close"
+            size="20"
+            color="#999"
+            @click="closeAnnouncement"
+          ></nut-icon>
+        </view>
+        <view class="announcement-content">
+          <text class="announcement-text">
+            欢迎使用家电商城小程序！
+            
+            🎉 新用户专享优惠：
+            • 首次下单立减50元
+            • 免费配送到家
+            • 7天无理由退换货
+            
+            📱 更多功能：
+            • 在线客服24小时服务
+            • 正品保障，假一赔十
+            • 积分兑换精美礼品
+            
+            感谢您的信任与支持！
+          </text>
+        </view>
+        <view class="announcement-footer">
+          <nut-button type="primary" block @click="closeAnnouncement">我知道了</nut-button>
+        </view>
+      </view>
+    </nut-popup>
   </view>
 </template>
 
 <script setup lang="js">
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { homeApi } from '../../api/index';
 import { productApi } from '../../api/product';
 import { userApi } from '../../api/user';
@@ -108,6 +144,9 @@ const recommendProductList = ref([]);
 // 邀请码相关状态
 const showInviteCodePopup = ref(false);
 const inputInviteCode = ref('');
+
+// 公告弹窗状态
+const showAnnouncementPopup = ref(false);
 
 // 加载状态
 const loading = ref({
@@ -129,6 +168,11 @@ onLoad((options) => {
   if (options && options.inviteCode) {
     inputInviteCode.value = options.inviteCode;
     showInviteCodePopup.value = true;
+  } else {
+    // 如果没有邀请码弹窗，则显示公告弹窗
+    setTimeout(() => {
+      showAnnouncementPopup.value = true;
+    }, 500); // 延迟500ms显示，让页面先加载完成
   }
 });
 
@@ -239,7 +283,7 @@ const navigateToProduct = (id) => {
   const productId = String(id);
   uni.navigateTo({
     url: `/pages/product/detail?id=${productId}`,
-    success: (res) => {
+    success: () => {
       console.log('跳转成功');
     },
     fail: (err) => {
@@ -303,6 +347,11 @@ const submitInviteCode = async () => {
       icon: 'none'
     });
   }
+};
+
+// 关闭公告弹窗
+const closeAnnouncement = () => {
+  showAnnouncementPopup.value = false;
 };
 </script>
 
@@ -466,5 +515,58 @@ const submitInviteCode = async () => {
 
 .popup-buttons .nut-button {
   flex: 1;
+}
+
+// 公告弹窗样式
+.announcement-popup {
+  width: 600rpx;
+  max-width: 90vw;
+  padding: 0;
+  border-radius: 20rpx;
+  overflow: hidden;
+}
+
+.announcement-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx 30rpx 20rpx;
+  background: linear-gradient(135deg, #E31D1A 0%, #FF6B6B 100%);
+  color: white;
+}
+
+.announcement-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-left: 10rpx;
+  flex: 1;
+  color: white;
+}
+
+.announcement-header .nut-icon:last-child {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.announcement-content {
+  padding: 30rpx;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.announcement-text {
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: #333;
+  white-space: pre-line;
+}
+
+.announcement-footer {
+  padding: 0 30rpx 30rpx;
+}
+
+.announcement-footer .nut-button {
+  height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 30rpx;
 }
 </style>
