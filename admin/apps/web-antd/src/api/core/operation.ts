@@ -61,6 +61,23 @@ export async function updateMiniAppUserTypeApi(
   });
 }
 
+/**
+ * 赠送用户VIP
+ * @param id 用户ID
+ * @param duration VIP时长（月数，默认12个月）
+ * @param remark 备注信息
+ */
+export async function grantUserVipApi(
+  id: number,
+  duration: number = 12,
+  remark?: string,
+) {
+  return requestClient.put<any>(`/admin/mini-users/${id}/vip`, {
+    duration,
+    remark,
+  });
+}
+
 export async function addMiniAppUserApi(data: MiniAppUser) {
   return requestClient.post<any>('/sys/miniAppUser/add', data);
 }

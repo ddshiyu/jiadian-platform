@@ -28,6 +28,7 @@ import dayjs from 'dayjs';
 import {
   getMiniAppUserDetailApi,
   getMiniAppUserListApi,
+  grantUserVipApi,
   updateMiniAppUserTypeApi,
 } from '#/api/core/operation';
 
@@ -63,6 +64,8 @@ interface User {
   updatedAt: string;
   userType?: 'consumer' | 'supplier';
   supplierInfo?: Record<string, any>;
+  isVip?: boolean;
+  vipExpireDate?: string;
   Addresses?: Address[];
   Orders?: Order[];
 }
@@ -115,6 +118,18 @@ const columns = [
     },
   },
   {
+    title: 'VIP状态',
+    dataIndex: 'isVip',
+    key: 'vipStatus',
+    width: 100,
+  },
+  {
+    title: 'VIP到期时间',
+    dataIndex: 'vipExpireDate',
+    key: 'vipExpireDate',
+    width: 150,
+  },
+  {
     title: '注册时间',
     dataIndex: 'createdAt',
     key: 'createdAt',
@@ -123,7 +138,7 @@ const columns = [
   {
     title: '操作',
     key: 'action',
-    width: 200,
+    width: 250,
   },
 ];
 
@@ -150,6 +165,52 @@ const submitLoading = ref(false);
 // 方法定义
 const formatDate = (date: string) => {
   return date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '-';
+};
+
+// 获取VIP状态信息
+const getVipStatusInfo = (user: any) => {
+  if (!user.isVip || !user.vipExpireDate) {
+    return { status: 'none', text: '普通用户', color: 'default' };
+  }
+
+  const now = new Date();
+  const expireDate = new Date(user.vipExpireDate);
+  const isExpired = expireDate <= now;
+
+  // 计算距离过期还有多少天
+  const daysUntilExpire = Math.ceil(
+    (expireDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  if (isExpired) {
+    return { status: 'expired', text: 'VIP已过期', color: 'red' };
+  } else if (daysUntilExpire <= 7) {
+    return { status: 'expiring', text: 'VIP即将过期', color: 'orange' };
+  } else {
+    return { status: 'active', text: 'VIP会员', color: 'gold' };
+  }
+};
+
+// 获取VIP到期时间的显示样式
+const getVipExpireDateStyle = (user: any) => {
+  if (!user.isVip || !user.vipExpireDate) {
+    return { class: 'text-gray-400' };
+  }
+
+  const now = new Date();
+  const expireDate = new Date(user.vipExpireDate);
+  const isExpired = expireDate <= now;
+  const daysUntilExpire = Math.ceil(
+    (expireDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  if (isExpired) {
+    return { class: 'text-red-500' };
+  } else if (daysUntilExpire <= 7) {
+    return { class: 'text-orange-500' };
+  } else {
+    return { class: 'text-green-600' };
+  }
 };
 
 const getOrderStatusText = (status: string) => {
@@ -251,6 +312,29 @@ const handleChangeUserType = (record: User) => {
   });
 };
 
+// 处理赠送VIP
+const handleGrantVip = (record: User) => {
+  Modal.confirm({
+    title: '赠送VIP',
+    content: `确定为用户 "${record.nickname}" 赠送1年VIP会员吗？`,
+    okText: '确定',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        submitLoading.value = true;
+        await grantUserVipApi(record.id, 12, '管理员赠送VIP');
+        message.success('VIP赠送成功');
+        fetchUserList();
+      } catch (error) {
+        console.error('VIP赠送失败:', error);
+        message.error('VIP赠送失败');
+      } finally {
+        submitLoading.value = false;
+      }
+    },
+  });
+};
+
 // 初始化
 onMounted(() => {
   fetchUserList();
@@ -316,6 +400,20 @@ onMounted(() => {
           <template v-if="column.key === 'gender'">
             <span>{{ record.gender || '-' }}</span>
           </template>
+          <template v-if="column.key === 'vipStatus'">
+            <Tag :color="getVipStatusInfo(record).color">
+              {{ getVipStatusInfo(record).text }}
+            </Tag>
+          </template>
+          <template v-if="column.key === 'vipExpireDate'">
+            <span
+              v-if="record.isVip && record.vipExpireDate"
+              :class="getVipExpireDateStyle(record).class"
+            >
+              {{ formatDate(record.vipExpireDate) }}
+            </span>
+            <span v-else class="text-gray-400">-</span>
+          </template>
           <template v-if="column.key === 'createdAt'">
             {{ formatDate(record.createdAt) }}
           </template>
@@ -324,6 +422,8 @@ onMounted(() => {
               <a @click="handleViewDetail(record)">查看</a>
               <Divider type="vertical" />
               <a @click="handleChangeUserType(record)">变更身份</a>
+              <Divider type="vertical" />
+              <a @click="handleGrantVip(record)">赠送VIP</a>
             </Space>
           </template>
         </template>
@@ -360,6 +460,20 @@ onMounted(() => {
           </DescriptionsItem>
           <DescriptionsItem label="用户类型">
             {{ currentUser.userType === 'supplier' ? '供应商' : '消费者' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="VIP状态">
+            <Tag :color="getVipStatusInfo(currentUser).color">
+              {{ getVipStatusInfo(currentUser).text }}
+            </Tag>
+          </DescriptionsItem>
+          <DescriptionsItem label="VIP到期时间">
+            <span
+              v-if="currentUser.isVip && currentUser.vipExpireDate"
+              :class="getVipExpireDateStyle(currentUser).class"
+            >
+              {{ formatDate(currentUser.vipExpireDate) }}
+            </span>
+            <span v-else class="text-gray-400">-</span>
           </DescriptionsItem>
           <DescriptionsItem label="注册时间">
             {{ formatDate(currentUser.createdAt) }}
@@ -464,5 +578,21 @@ onMounted(() => {
 
 .danger-link {
   color: #ff4d4f;
+}
+
+.text-gray-400 {
+  color: #9ca3af;
+}
+
+.text-red-500 {
+  color: #ef4444;
+}
+
+.text-orange-500 {
+  color: #f97316;
+}
+
+.text-green-600 {
+  color: #16a34a;
 }
 </style>
