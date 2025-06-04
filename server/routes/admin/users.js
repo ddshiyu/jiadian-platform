@@ -91,27 +91,7 @@ router.get('/', adminAuth, async (req, res) => {
   }
 });
 
-/**
- * @api {get} /admin/users/:id 获取管理员详情
- * @apiDescription 获取管理员详情(超级管理员)
- * @apiHeader {String} Authorization Bearer JWT
- */
-router.get('/:id', adminAuth, async (req, res) => {
-  try {
-    const user = await AdminUser.findByPk(req.params.id, {
-      attributes: { exclude: ['password'] }
-    });
 
-    if (!user) {
-      return res.status(400).json({ message: '管理员不存在' });
-    }
-
-    res.status(200).json(user);
-  } catch (error) {
-    console.error('获取管理员详情失败:', error);
-    res.status(400).json({ message: '获取管理员详情失败' });
-  }
-});
 
 /**
  * @api {post} /admin/users 创建管理员
@@ -275,7 +255,7 @@ router.put('/:id/status', adminAuth, async (req, res) => {
     }
 
     // 不能修改自己的状态
-    if (user.id === req.user.id) {
+    if (user.id === req.admin.id) {
       return res.status(400).json({ message: '不能修改自己的状态' });
     }
 
@@ -344,6 +324,52 @@ router.get('/statistics/summary', adminAuth, async (req, res) => {
   } catch (error) {
     console.error('获取管理员统计摘要失败:', error);
     res.status(400).json({ message: '获取管理员统计摘要失败' });
+  }
+});
+
+/**
+ * @api {get} /admin/users/profile 获取当前管理员个人信息
+ * @apiDescription 获取当前登录管理员的个人信息
+ * @apiHeader {String} Authorization Bearer JWT
+ */
+router.get('/profile', adminAuth, async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+
+    const admin = await AdminUser.findByPk(adminId, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!admin) {
+      return res.status(404).json({ message: '管理员不存在' });
+    }
+
+    res.status(200).json(admin);
+  } catch (error) {
+    console.error('获取个人信息失败:', error);
+    res.status(400).json({ message: '获取个人信息失败' });
+  }
+});
+
+/**
+ * @api {get} /admin/users/:id 获取管理员详情
+ * @apiDescription 获取管理员详情(超级管理员)
+ * @apiHeader {String} Authorization Bearer JWT
+ */
+router.get('/:id', adminAuth, async (req, res) => {
+  try {
+    const user = await AdminUser.findByPk(req.params.id, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: '管理员不存在' });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('获取管理员详情失败:', error);
+    res.status(400).json({ message: '获取管理员详情失败' });
   }
 });
 

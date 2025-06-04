@@ -689,3 +689,101 @@ export function updateCommissionStatusApi(
 ) {
   return requestClient.put(`/admin/commissions/${id}/status`, { status });
 }
+
+/**
+ * 管理员个人信息相关接口
+ */
+export interface PaymentMethod {
+  id?: number;
+  type: 'alipay' | 'bank' | 'wechat';
+  name: string;
+  account: string;
+  qrCode?: string;
+  bankName?: string;
+  isDefault?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MerchantProfile {
+  id: number;
+  username: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  role: 'admin' | 'user';
+  status: 'active' | 'inactive';
+  paymentMethods?: PaymentMethod[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 获取当前管理员用户信息
+ */
+export function getMerchantProfileApi() {
+  return requestClient.get<MerchantProfile>('/admin/users/profile');
+}
+
+/**
+ * 更新管理员用户信息
+ * @param data 用户信息
+ */
+export function updateMerchantProfileApi(data: Partial<MerchantProfile>) {
+  // 先获取当前用户信息，然后使用用户ID更新
+  return getMerchantProfileApi().then((profile) => {
+    return requestClient.put<MerchantProfile>(
+      `/admin/users/${profile.id}`,
+      data,
+    );
+  });
+}
+
+/**
+ * 获取收款方式列表
+ */
+export function getPaymentMethodsApi() {
+  return requestClient.get<PaymentMethod[]>('/admin/users/payment-methods');
+}
+
+/**
+ * 添加收款方式
+ * @param data 收款方式信息
+ */
+export function addPaymentMethodApi(data: PaymentMethod) {
+  return requestClient.post<PaymentMethod>(
+    '/admin/users/payment-methods',
+    data,
+  );
+}
+
+/**
+ * 更新收款方式
+ * @param id 收款方式ID
+ * @param data 收款方式信息
+ */
+export function updatePaymentMethodApi(
+  id: number,
+  data: Partial<PaymentMethod>,
+) {
+  return requestClient.put<PaymentMethod>(
+    `/admin/users/payment-methods/${id}`,
+    data,
+  );
+}
+
+/**
+ * 删除收款方式
+ * @param id 收款方式ID
+ */
+export function deletePaymentMethodApi(id: number) {
+  return requestClient.delete(`/admin/users/payment-methods/${id}`);
+}
+
+/**
+ * 设置默认收款方式
+ * @param id 收款方式ID
+ */
+export function setDefaultPaymentMethodApi(id: number) {
+  return requestClient.put(`/admin/users/payment-methods/${id}/default`);
+}

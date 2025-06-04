@@ -33,6 +33,26 @@ const routes: RouteRecordRaw[] = [
   },
   {
     meta: {
+      icon: 'material-symbols:person-outline',
+      keepAlive: false,
+      order: 1500,
+      title: '我的',
+    },
+    name: 'Profile',
+    path: '/profile',
+    children: [
+      {
+        meta: {
+          title: '我的信息',
+        },
+        name: 'MyProfile',
+        path: '/profile/my',
+        component: () => import('#/views/profile/my-profile.vue'),
+      },
+    ],
+  },
+  {
+    meta: {
       icon: 'material-symbols:local-mall-outline',
       keepAlive: false,
       order: 2000,

@@ -11,6 +11,7 @@
  * - phone: 管理员手机号码
  * - role: 管理员角色（admin-超级管理员，拥有所有权限；user-商家用户，可以发布产品和管理自己的订单）
  * - status: 账号状态（active-激活、inactive-未激活）
+ * - paymentMethods: 收款方式配置（JSON格式，包含收款码和银行卡信息）
  *
  * 核心方法：
  * - comparePassword: 验证密码是否匹配（实例方法）
@@ -64,6 +65,55 @@ const AdminUser = sequelize.define("AdminUser", {
     type: DataTypes.ENUM("active", "inactive"),
     allowNull: false,
     defaultValue: "active"
+  },
+  paymentMethods: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null,
+    comment: "收款方式配置，包含收款码和银行卡信息",
+    validate: {
+      isValidPaymentMethods(value) {
+        if (value === null || value === undefined) return;
+
+        // 验证JSON结构
+        if (typeof value !== 'object') {
+          throw new Error('收款方式必须是对象格式');
+        }
+
+        // 验证收款码
+        if (value.qrCodes && !Array.isArray(value.qrCodes)) {
+          throw new Error('收款码必须是数组格式');
+        }
+
+        if (value.qrCodes) {
+          for (const qr of value.qrCodes) {
+            if (!qr.type || !qr.imageUrl) {
+              throw new Error('收款码必须包含type和imageUrl字段');
+            }
+            if (!['wechat', 'alipay', 'other'].includes(qr.type)) {
+              throw new Error('收款码类型必须是wechat、alipay或other');
+            }
+          }
+        }
+
+        // 验证银行卡
+        if (value.bankCards && !Array.isArray(value.bankCards)) {
+          throw new Error('银行卡必须是数组格式');
+        }
+
+        if (value.bankCards) {
+          for (const card of value.bankCards) {
+            if (!card.bankName || !card.cardNumber || !card.accountName) {
+              throw new Error('银行卡必须包含bankName、cardNumber和accountName字段');
+            }
+            // 验证银行卡号格式（简单验证）
+            if (!/^\d{16,19}$/.test(card.cardNumber.replace(/\s/g, ''))) {
+              throw new Error('银行卡号格式不正确');
+            }
+          }
+        }
+      }
+    }
   }
 }, {
   tableName: 'AdminUsers', // 明确指定表名
@@ -73,6 +123,39 @@ const AdminUser = sequelize.define("AdminUser", {
 // 添加实例方法用于密码验证
 AdminUser.prototype.comparePassword = async function(password) {
   return bcrypt.compareSync(password, this.password);
+};
+
+// 添加收款方式管理的实例方法
+AdminUser.prototype.addPaymentMethod = function(type, data) {
+  const currentMethods = this.paymentMethods || { qrCodes: [], bankCards: [] };
+
+  if (type === 'qrCode') {
+    if (!currentMethods.qrCodes) currentMethods.qrCodes = [];
+    currentMethods.qrCodes.push(data);
+  } else if (type === 'bankCard') {
+    if (!currentMethods.bankCards) currentMethods.bankCards = [];
+    currentMethods.bankCards.push(data);
+  }
+
+  this.paymentMethods = currentMethods;
+  return this;
+};
+
+AdminUser.prototype.removePaymentMethod = function(type, index) {
+  const currentMethods = this.paymentMethods || { qrCodes: [], bankCards: [] };
+
+  if (type === 'qrCode' && currentMethods.qrCodes && currentMethods.qrCodes[index]) {
+    currentMethods.qrCodes.splice(index, 1);
+  } else if (type === 'bankCard' && currentMethods.bankCards && currentMethods.bankCards[index]) {
+    currentMethods.bankCards.splice(index, 1);
+  }
+
+  this.paymentMethods = currentMethods;
+  return this;
+};
+
+AdminUser.prototype.getPaymentMethods = function() {
+  return this.paymentMethods || { qrCodes: [], bankCards: [] };
 };
 
 // 创建或更新表结构 - 添加同步功能
