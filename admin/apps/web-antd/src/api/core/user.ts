@@ -6,7 +6,7 @@ import { requestClient } from '#/api/request';
  * 获取用户信息
  */
 export async function getUserInfoApi() {
-  return requestClient.get<UserInfo>('/user/info');
+  return requestClient.get<UserInfo>('/admin/users/profile');
 }
 
 // 后台用户管理相关接口
@@ -127,4 +127,80 @@ export function getAdminUserStatisticsSummaryApi() {
     todayNewUsers: number;
     totalCount: number;
   }>('/admin/users/statistics/summary');
+}
+
+// 付款方式相关接口
+export interface QRCodePayment {
+  type: 'wechat' | 'alipay' | 'other';
+  imageUrl: string;
+  name: string;
+}
+
+export interface BankCardPayment {
+  bankName: string;
+  cardNumber: string;
+  accountName: string;
+}
+
+export interface PaymentMethods {
+  qrCodes: QRCodePayment[];
+  bankCards: BankCardPayment[];
+}
+
+export interface AdminUserWithPayments extends AdminUser {
+  paymentMethods?: PaymentMethods;
+}
+
+/**
+ * 获取管理员付款方式
+ * @param id 管理员ID，如果不传则获取当前管理员的付款方式
+ */
+export function getAdminUserPaymentMethodsApi(id?: number) {
+  const url = id ? `/admin/users/${id}/payment-methods` : '/admin/users/profile/payment-methods';
+  return requestClient.get<{ paymentMethods: PaymentMethods }>(url);
+}
+
+/**
+ * 更新管理员付款方式
+ * @param id 管理员ID
+ * @param paymentMethods 付款方式数据
+ */
+export function updateAdminUserPaymentMethodsApi(id: number, paymentMethods: PaymentMethods) {
+  return requestClient.put<{ message: string; paymentMethods: PaymentMethods }>(
+    `/admin/users/${id}/payment-methods`,
+    { paymentMethods }
+  );
+}
+
+/**
+ * 添加单个付款方式
+ * @param id 管理员ID
+ * @param type 付款方式类型
+ * @param data 付款方式数据
+ */
+export function addAdminUserPaymentMethodApi(
+  id: number,
+  type: 'qrCode' | 'bankCard',
+  data: QRCodePayment | BankCardPayment
+) {
+  return requestClient.post<{ message: string; paymentMethods: PaymentMethods }>(
+    `/admin/users/${id}/payment-methods/${type}`,
+    data
+  );
+}
+
+/**
+ * 删除单个付款方式
+ * @param id 管理员ID
+ * @param type 付款方式类型
+ * @param index 要删除的索引
+ */
+export function deleteAdminUserPaymentMethodApi(
+  id: number,
+  type: 'qrCode' | 'bankCard',
+  index: number
+) {
+  return requestClient.delete<{ message: string; paymentMethods: PaymentMethods }>(
+    `/admin/users/${id}/payment-methods/${type}/${index}`
+  );
 }

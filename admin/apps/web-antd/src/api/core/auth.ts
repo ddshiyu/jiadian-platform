@@ -9,7 +9,16 @@ export namespace AuthApi {
 
   /** 登录接口返回值 */
   export interface LoginResult {
-    accessToken: string;
+    token: string;
+    user: {
+      id: number;
+      username: string;
+      name?: string;
+      role: 'admin' | 'user';
+      status: 'active' | 'inactive';
+      email?: string;
+      phone?: string;
+    };
   }
 
   export interface RefreshTokenResult {

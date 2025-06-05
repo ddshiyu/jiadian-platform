@@ -563,6 +563,35 @@ router.delete('/:id/payment-methods/:type/:index', adminAuth, async (req, res) =
 });
 
 /**
+ * @api {get} /admin/users/:id/payment-methods 获取指定管理员的付款方式
+ * @apiDescription 获取指定管理员的付款方式配置
+ * @apiHeader {String} Authorization Bearer JWT
+ */
+router.get('/:id/payment-methods', adminAuth, async (req, res) => {
+  try {
+    console.log('获取用户付款方式，用户ID:', req.params.id);
+    const user = await AdminUser.findByPk(req.params.id, {
+      attributes: ['id', 'name', 'paymentMethods']
+    });
+
+    if (!user) {
+      console.log('用户不存在，ID:', req.params.id);
+      return res.status(404).json({ message: '管理员不存在' });
+    }
+
+    const paymentMethods = user.getPaymentMethods();
+    console.log('获取到的付款方式:', paymentMethods);
+
+    res.status(200).json({
+      paymentMethods: paymentMethods
+    });
+  } catch (error) {
+    console.error('获取管理员付款方式失败:', error);
+    res.status(400).json({ message: '获取管理员付款方式失败' });
+  }
+});
+
+/**
  * @api {get} /admin/users/:id 获取管理员详情
  * @apiDescription 获取管理员详情(超级管理员)
  * @apiHeader {String} Authorization Bearer JWT

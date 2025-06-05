@@ -35,8 +35,8 @@ export const useAuthStore = defineStore('auth', () => {
       // 如果成功获取到 accessToken
       if (accessToken) {
         accessStore.setAccessToken(accessToken);
-        user.roles = [user.role];
-        userInfo = user;
+        (user as any).roles = [user.role];
+        userInfo = user as any;
         userStore.setUserInfo(userInfo);
         // // 获取用户信息并存储到 accessStore 中
         // const [fetchUserInfoResult, accessCodes] = await Promise.all([
@@ -100,9 +100,15 @@ export const useAuthStore = defineStore('auth', () => {
     });
   }
 
-  async function fetchUserInfo() {
+    async function fetchUserInfo() {
     let userInfo: null | UserInfo = null;
     userInfo = await getUserInfoApi();
+
+    // 确保角色信息正确设置
+    if (userInfo && (userInfo as any).role) {
+      (userInfo as any).roles = [(userInfo as any).role];
+    }
+
     userStore.setUserInfo(userInfo);
     return userInfo;
   }

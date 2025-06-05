@@ -10,6 +10,7 @@ const routes: RouteRecordRaw[] = [
     },
     name: 'Operation',
     path: '/operation',
+    redirect: '/operation/users',
     children: [
       {
         meta: {
@@ -18,7 +19,7 @@ const routes: RouteRecordRaw[] = [
         },
         name: 'users',
         path: '/operation/users',
-        component: () => import('#/views/operation/admin-users.vue'),
+        component: () => import('#/views/operation/users.vue'),
       },
       {
         meta: {
@@ -40,6 +41,7 @@ const routes: RouteRecordRaw[] = [
     },
     name: 'Profile',
     path: '/profile',
+    redirect: '/profile/my',
     children: [
       {
         meta: {
@@ -60,6 +62,7 @@ const routes: RouteRecordRaw[] = [
     },
     name: 'Product',
     path: '/product',
+    redirect: '/product/list',
     children: [
       {
         meta: {
@@ -96,6 +99,7 @@ const routes: RouteRecordRaw[] = [
     },
     name: 'Order',
     path: '/order',
+    redirect: '/order/list',
     children: [
       {
         meta: {
@@ -117,6 +121,7 @@ const routes: RouteRecordRaw[] = [
     },
     name: 'Commission',
     path: '/commission',
+    redirect: '/commission/list',
     children: [
       {
         meta: {

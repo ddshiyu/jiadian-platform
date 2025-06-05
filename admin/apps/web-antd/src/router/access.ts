@@ -25,11 +25,9 @@ async function generateAccess(options: GenerateMenuAndRoutesOptions) {
   return await generateAccessible(preferences.app.accessMode, {
     ...options,
     fetchMenuListAsync: async () => {
-      message.loading({
-        content: `${$t('common.loadingMenu')}...`,
-        duration: 1.5,
-      });
-      return await getAllMenusApi();
+      console.log('access.ts - 开始获取菜单列表');
+      // 暂时返回空数组，使用静态路由权限检查
+      return [];
     },
     // 可以指定没有权限跳转403页面
     forbiddenComponent,

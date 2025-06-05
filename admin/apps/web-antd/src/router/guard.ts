@@ -88,17 +88,46 @@ function setupAccessGuard(router: Router) {
     if (accessStore.isAccessChecked) {
       return true;
     }
+
+        // 确保用户信息已加载
+    let userInfo = userStore.userInfo;
+    console.log('路由守卫 - 当前用户信息:', userInfo);
+    console.log('路由守卫 - 目标路径:', to.path);
+
+    if (!userInfo) {
+      console.log('路由守卫 - 用户信息为空，尝试获取...');
+      try {
+        userInfo = await authStore.fetchUserInfo();
+        console.log('路由守卫 - 获取到用户信息:', userInfo);
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+        // 获取用户信息失败，跳转到登录页
+        accessStore.setAccessToken(null);
+        return {
+          path: LOGIN_PATH,
+          query: { redirect: encodeURIComponent(to.fullPath) },
+          replace: true,
+        };
+      }
+    }
+
     // 生成路由表
     // 当前登录用户拥有的角色标识列表
-    const userInfo = userStore.userInfo;
     const userRoles = userInfo?.roles ?? [];
+    console.log('路由守卫 - 用户角色:', userRoles);
     // 生成菜单和路由
+    console.log('路由守卫 - 开始生成权限路由，用户角色:', userRoles);
+    console.log('路由守卫 - 原始路由数量:', accessRoutes.length);
+
     const { accessibleMenus, accessibleRoutes } = await generateAccess({
       roles: userRoles,
       router,
       // 则会在菜单中显示，但是访问会被重定向到403
       routes: accessRoutes,
     });
+
+    console.log('路由守卫 - 生成的可访问菜单:', accessibleMenus);
+    console.log('路由守卫 - 生成的可访问路由:', accessibleRoutes);
 
     // 保存菜单信息和路由信息
     accessStore.setAccessMenus(accessibleMenus);
