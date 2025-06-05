@@ -693,16 +693,21 @@ export function updateCommissionStatusApi(
 /**
  * 管理员个人信息相关接口
  */
-export interface PaymentMethod {
-  id?: number;
-  type: 'alipay' | 'bank' | 'wechat';
+export interface QRCodePayment {
+  type: 'wechat' | 'alipay' | 'other';
+  imageUrl: string;
   name: string;
-  account: string;
-  qrCode?: string;
-  bankName?: string;
-  isDefault?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+}
+
+export interface BankCardPayment {
+  bankName: string;
+  cardNumber: string;
+  accountName: string;
+}
+
+export interface PaymentMethods {
+  qrCodes: QRCodePayment[];
+  bankCards: BankCardPayment[];
 }
 
 export interface MerchantProfile {
@@ -713,77 +718,98 @@ export interface MerchantProfile {
   email?: string;
   role: 'admin' | 'user';
   status: 'active' | 'inactive';
-  paymentMethods?: PaymentMethod[];
+  paymentMethods?: PaymentMethods;
   createdAt: string;
   updatedAt: string;
 }
 
 /**
- * 获取当前管理员用户信息
+ * 获取当前管理员个人信息
  */
 export function getMerchantProfileApi() {
   return requestClient.get<MerchantProfile>('/admin/users/profile');
 }
 
 /**
- * 更新管理员用户信息
- * @param data 用户信息
+ * 更新当前管理员个人信息
+ * @param data 个人信息
  */
-export function updateMerchantProfileApi(data: Partial<MerchantProfile>) {
-  // 先获取当前用户信息，然后使用用户ID更新
+export function updateMerchantProfileApi(data: {
+  name?: string;
+  email?: string;
+  phone?: string;
+}) {
+  return requestClient.put<MerchantProfile>('/admin/users/profile', data);
+}
+
+/**
+ * 获取当前管理员收款方式列表
+ */
+export function getPaymentMethodsApi() {
+  return requestClient.get<{ paymentMethods: PaymentMethods }>('/admin/users/profile/payment-methods');
+}
+
+/**
+ * 更新当前管理员收款方式
+ * @param paymentMethods 收款方式信息
+ */
+export function updatePaymentMethodsApi(paymentMethods: PaymentMethods) {
+  return requestClient.put<{ message: string; paymentMethods: PaymentMethods }>(
+    '/admin/users/profile/payment-methods',
+    { paymentMethods },
+  );
+}
+
+/**
+ * 添加收款码
+ * @param data 收款码信息
+ */
+export function addQRCodePaymentApi(data: QRCodePayment) {
+  // 先获取当前用户信息，然后使用用户ID添加付款方式
   return getMerchantProfileApi().then((profile) => {
-    return requestClient.put<MerchantProfile>(
-      `/admin/users/${profile.id}`,
+    return requestClient.post<{ message: string; paymentMethods: PaymentMethods }>(
+      `/admin/users/${profile.id}/payment-methods/qrCode`,
       data,
     );
   });
 }
 
 /**
- * 获取收款方式列表
+ * 添加银行卡
+ * @param data 银行卡信息
  */
-export function getPaymentMethodsApi() {
-  return requestClient.get<PaymentMethod[]>('/admin/users/payment-methods');
+export function addBankCardPaymentApi(data: BankCardPayment) {
+  // 先获取当前用户信息，然后使用用户ID添加付款方式
+  return getMerchantProfileApi().then((profile) => {
+    return requestClient.post<{ message: string; paymentMethods: PaymentMethods }>(
+      `/admin/users/${profile.id}/payment-methods/bankCard`,
+      data,
+    );
+  });
 }
 
 /**
- * 添加收款方式
- * @param data 收款方式信息
+ * 删除收款码
+ * @param index 收款码索引
  */
-export function addPaymentMethodApi(data: PaymentMethod) {
-  return requestClient.post<PaymentMethod>(
-    '/admin/users/payment-methods',
-    data,
-  );
+export function deleteQRCodePaymentApi(index: number) {
+  // 先获取当前用户信息，然后使用用户ID删除付款方式
+  return getMerchantProfileApi().then((profile) => {
+    return requestClient.delete<{ message: string; paymentMethods: PaymentMethods }>(
+      `/admin/users/${profile.id}/payment-methods/qrCode/${index}`,
+    );
+  });
 }
 
 /**
- * 更新收款方式
- * @param id 收款方式ID
- * @param data 收款方式信息
+ * 删除银行卡
+ * @param index 银行卡索引
  */
-export function updatePaymentMethodApi(
-  id: number,
-  data: Partial<PaymentMethod>,
-) {
-  return requestClient.put<PaymentMethod>(
-    `/admin/users/payment-methods/${id}`,
-    data,
-  );
-}
-
-/**
- * 删除收款方式
- * @param id 收款方式ID
- */
-export function deletePaymentMethodApi(id: number) {
-  return requestClient.delete(`/admin/users/payment-methods/${id}`);
-}
-
-/**
- * 设置默认收款方式
- * @param id 收款方式ID
- */
-export function setDefaultPaymentMethodApi(id: number) {
-  return requestClient.put(`/admin/users/payment-methods/${id}/default`);
+export function deleteBankCardPaymentApi(index: number) {
+  // 先获取当前用户信息，然后使用用户ID删除付款方式
+  return getMerchantProfileApi().then((profile) => {
+    return requestClient.delete<{ message: string; paymentMethods: PaymentMethods }>(
+      `/admin/users/${profile.id}/payment-methods/bankCard/${index}`,
+    );
+  });
 }

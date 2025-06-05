@@ -352,6 +352,217 @@ router.get('/profile', adminAuth, async (req, res) => {
 });
 
 /**
+ * @api {put} /admin/users/profile 更新当前管理员个人信息
+ * @apiDescription 更新当前登录管理员的个人信息
+ * @apiHeader {String} Authorization Bearer JWT
+ */
+router.put('/profile', adminAuth, async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+    const adminId = req.admin.id;
+
+    const admin = await AdminUser.findByPk(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: '管理员不存在' });
+    }
+
+    // 更新管理员信息
+    if (name !== undefined) admin.name = name;
+    if (email !== undefined) admin.email = email;
+    if (phone !== undefined) admin.phone = phone;
+
+    await admin.save();
+
+    // 不返回密码字段
+    const { password: _, ...adminWithoutPassword } = admin.toJSON();
+
+    res.status(200).json(adminWithoutPassword);
+  } catch (error) {
+    console.error('更新个人信息失败:', error);
+    res.status(400).json({ message: '更新个人信息失败' });
+  }
+});
+
+/**
+ * @api {get} /admin/users/profile/payment-methods 获取当前管理员付款方式
+ * @apiDescription 获取当前登录管理员的付款方式配置
+ * @apiHeader {String} Authorization Bearer JWT
+ */
+router.get('/profile/payment-methods', adminAuth, async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+
+    const admin = await AdminUser.findByPk(adminId, {
+      attributes: ['id', 'name', 'paymentMethods']
+    });
+
+    if (!admin) {
+      return res.status(404).json({ message: '管理员不存在' });
+    }
+
+    res.status(200).json({
+      paymentMethods: admin.getPaymentMethods()
+    });
+  } catch (error) {
+    console.error('获取个人付款方式失败:', error);
+    res.status(400).json({ message: '获取个人付款方式失败' });
+  }
+});
+
+/**
+ * @api {put} /admin/users/profile/payment-methods 更新当前管理员付款方式
+ * @apiDescription 更新当前登录管理员的付款方式配置
+ * @apiHeader {String} Authorization Bearer JWT
+ */
+router.put('/profile/payment-methods', adminAuth, async (req, res) => {
+  try {
+    const { paymentMethods } = req.body;
+    const adminId = req.admin.id;
+
+    const admin = await AdminUser.findByPk(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: '管理员不存在' });
+    }
+
+    // 验证付款方式数据格式
+    if (paymentMethods && typeof paymentMethods !== 'object') {
+      return res.status(400).json({ message: '付款方式数据格式不正确' });
+    }
+
+    admin.paymentMethods = paymentMethods;
+    // 明确标记字段已更改，确保 Sequelize 检测到变化
+    admin.changed('paymentMethods', true);
+    await admin.save();
+
+    res.status(200).json({
+      message: '付款方式更新成功',
+      paymentMethods: admin.getPaymentMethods()
+    });
+  } catch (error) {
+    console.error('更新个人付款方式失败:', error);
+    res.status(400).json({ message: '更新个人付款方式失败', error: error.message });
+  }
+});
+
+/**
+ * @api {post} /admin/users/:id/payment-methods/:type 添加单个付款方式
+ * @apiDescription 为指定管理员添加单个付款方式（收款码或银行卡）
+ * @apiHeader {String} Authorization Bearer JWT
+ * @apiParam {String} type 付款方式类型 (qrCode 或 bankCard)
+ */
+router.post('/:id/payment-methods/:type', adminAuth, async (req, res) => {
+  try {
+    const { type } = req.params;
+    const data = req.body;
+    const user = await AdminUser.findByPk(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: '管理员不存在' });
+    }
+
+    // 获取当前登录的管理员信息
+    const currentAdmin = req.admin;
+
+    // 只有超级管理员或本人可以添加付款方式
+    if (currentAdmin.role !== 'admin' && currentAdmin.id !== user.id) {
+      return res.status(403).json({ message: '无权限为此管理员添加付款方式' });
+    }
+
+    // 验证类型
+    if (!['qrCode', 'bankCard'].includes(type)) {
+      return res.status(400).json({ message: '无效的付款方式类型' });
+    }
+
+    // 验证数据
+    if (type === 'qrCode') {
+      if (!data.type || !data.imageUrl || !data.name) {
+        return res.status(400).json({ message: '收款码必须包含type、imageUrl和name字段' });
+      }
+      if (!['wechat', 'alipay', 'other'].includes(data.type)) {
+        return res.status(400).json({ message: '收款码类型必须是wechat、alipay或other' });
+      }
+    } else if (type === 'bankCard') {
+      if (!data.bankName || !data.cardNumber || !data.accountName) {
+        return res.status(400).json({ message: '银行卡必须包含bankName、cardNumber和accountName字段' });
+      }
+      // 验证银行卡号格式
+      if (!/^\d{16,19}$/.test(data.cardNumber.replace(/\s/g, ''))) {
+        return res.status(400).json({ message: '银行卡号格式不正确' });
+      }
+    }
+
+    // 添加付款方式
+    user.addPaymentMethod(type, data);
+    await user.save();
+
+    res.status(200).json({
+      message: '付款方式添加成功',
+      paymentMethods: user.getPaymentMethods()
+    });
+  } catch (error) {
+    console.error('添加付款方式失败:', error);
+    res.status(400).json({ message: '添加付款方式失败', error: error.message });
+  }
+});
+
+/**
+ * @api {delete} /admin/users/:id/payment-methods/:type/:index 删除单个付款方式
+ * @apiDescription 删除指定管理员的单个付款方式
+ * @apiHeader {String} Authorization Bearer JWT
+ * @apiParam {String} type 付款方式类型 (qrCode 或 bankCard)
+ * @apiParam {Number} index 要删除的付款方式索引
+ */
+router.delete('/:id/payment-methods/:type/:index', adminAuth, async (req, res) => {
+  try {
+    const { type, index } = req.params;
+    const user = await AdminUser.findByPk(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: '管理员不存在' });
+    }
+
+    // 获取当前登录的管理员信息
+    const currentAdmin = req.admin;
+
+    // 只有超级管理员或本人可以删除付款方式
+    if (currentAdmin.role !== 'admin' && currentAdmin.id !== user.id) {
+      return res.status(403).json({ message: '无权限删除此管理员的付款方式' });
+    }
+
+    // 验证类型
+    if (!['qrCode', 'bankCard'].includes(type)) {
+      return res.status(400).json({ message: '无效的付款方式类型' });
+    }
+
+    // 验证索引
+    const indexNum = parseInt(index);
+    if (isNaN(indexNum) || indexNum < 0) {
+      return res.status(400).json({ message: '无效的索引值' });
+    }
+
+    // 检查索引是否存在
+    const currentMethods = user.getPaymentMethods();
+    const targetArray = type === 'qrCode' ? currentMethods.qrCodes : currentMethods.bankCards;
+
+    if (!targetArray || indexNum >= targetArray.length) {
+      return res.status(400).json({ message: '指定的付款方式不存在' });
+    }
+
+    // 删除付款方式
+    user.removePaymentMethod(type, indexNum);
+    await user.save();
+
+    res.status(200).json({
+      message: '付款方式删除成功',
+      paymentMethods: user.getPaymentMethods()
+    });
+  } catch (error) {
+    console.error('删除付款方式失败:', error);
+    res.status(400).json({ message: '删除付款方式失败', error: error.message });
+  }
+});
+
+/**
  * @api {get} /admin/users/:id 获取管理员详情
  * @apiDescription 获取管理员详情(超级管理员)
  * @apiHeader {String} Authorization Bearer JWT

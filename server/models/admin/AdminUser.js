@@ -138,6 +138,8 @@ AdminUser.prototype.addPaymentMethod = function(type, data) {
   }
 
   this.paymentMethods = currentMethods;
+  // 明确标记字段已更改，确保 Sequelize 检测到变化
+  this.changed('paymentMethods', true);
   return this;
 };
 
@@ -151,6 +153,8 @@ AdminUser.prototype.removePaymentMethod = function(type, index) {
   }
 
   this.paymentMethods = currentMethods;
+  // 明确标记字段已更改，确保 Sequelize 检测到变化
+  this.changed('paymentMethods', true);
   return this;
 };
 

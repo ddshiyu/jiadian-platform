@@ -1,7 +1,10 @@
 <script lang="ts" setup>
-import type { MerchantProfile, PaymentMethod } from '#/api/core/operation';
+import type { MerchantProfile, PaymentMethods } from '#/api/core/operation';
 
 import { onMounted, reactive, ref } from 'vue';
+import type { UploadChangeParam, UploadFile } from 'ant-design-vue/lib/upload/interface';
+
+import { useAccessStore } from '@vben/stores';
 
 import { InboxOutlined, PlusOutlined } from '@ant-design/icons-vue';
 import {
@@ -14,30 +17,35 @@ import {
   Input,
   message,
   Modal,
+  Popconfirm,
   Radio,
   RadioGroup,
   Table,
+  TabPane,
+  Tabs,
   Tag,
   Upload,
 } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
 import {
-  addPaymentMethodApi,
-  deletePaymentMethodApi,
+  addBankCardPaymentApi,
+  addQRCodePaymentApi,
+  deleteBankCardPaymentApi,
+  deleteQRCodePaymentApi,
   getMerchantProfileApi,
   getPaymentMethodsApi,
-  setDefaultPaymentMethodApi,
   updateMerchantProfileApi,
-  updatePaymentMethodApi,
 } from '#/api/core/operation';
+
+const accessStore = useAccessStore();
 
 // 状态数据
 const loading = ref(false);
 const profileLoading = ref(false);
 const paymentLoading = ref(false);
 const profile = ref<MerchantProfile | null>(null);
-const paymentMethods = ref<PaymentMethod[]>([]);
+const paymentMethods = ref<PaymentMethods>({ qrCodes: [], bankCards: [] });
 
 // 编辑个人信息相关
 const editProfileVisible = ref(false);
@@ -49,17 +57,20 @@ const profileForm = reactive({
 
 // 收款方式相关
 const paymentModalVisible = ref(false);
-const editingPayment = ref<null | PaymentMethod>(null);
-const paymentForm = reactive({
-  type: 'alipay' as 'alipay' | 'bank' | 'wechat',
+const paymentType = ref<'bankCard' | 'qrCode'>('qrCode');
+const qrCodeForm = reactive({
+  type: 'alipay' as 'alipay' | 'other' | 'wechat',
   name: '',
-  account: '',
-  qrCode: '',
+  imageUrl: '',
+});
+const bankCardForm = reactive({
   bankName: '',
+  cardNumber: '',
+  accountName: '',
 });
 
-// 表格列定义
-const paymentColumns = [
+// 收款码表格列定义
+const qrCodeColumns = [
   {
     title: '收款方式',
     dataIndex: 'type',
@@ -68,7 +79,7 @@ const paymentColumns = [
       const typeMap: Record<string, string> = {
         alipay: '支付宝',
         wechat: '微信',
-        bank: '银行卡',
+        other: '其他',
       };
       return typeMap[text] || text;
     },
@@ -79,20 +90,42 @@ const paymentColumns = [
     key: 'name',
   },
   {
-    title: '账号',
-    dataIndex: 'account',
-    key: 'account',
+    title: '二维码',
+    dataIndex: 'imageUrl',
+    key: 'imageUrl',
+    customRender: ({ text }: { text: string }) => {
+      return text ? '已上传' : '未上传';
+    },
   },
+  {
+    title: '操作',
+    key: 'action',
+  },
+];
+
+// 银行卡表格列定义
+const bankCardColumns = [
   {
     title: '银行名称',
     dataIndex: 'bankName',
     key: 'bankName',
-    customRender: ({ text }: { text: string }) => text || '-',
   },
   {
-    title: '状态',
-    dataIndex: 'isDefault',
-    key: 'isDefault',
+    title: '卡号',
+    dataIndex: 'cardNumber',
+    key: 'cardNumber',
+    customRender: ({ text }: { text: string }) => {
+      // 隐藏卡号中间部分
+      if (text && text.length > 8) {
+        return `${text.slice(0, 4)}****${text.slice(-4)}`;
+      }
+      return text;
+    },
+  },
+  {
+    title: '开户姓名',
+    dataIndex: 'accountName',
+    key: 'accountName',
   },
   {
     title: '操作',
@@ -129,6 +162,28 @@ const getStatusColor = (status: string) => {
   return colorMap[status] || 'default';
 };
 
+// 上传相关配置
+const uploadHeaders = {
+  Authorization: `Bearer ${accessStore.accessToken}`,
+};
+const uploadUrl = `${import.meta.env.VITE_BASE_URL}/upload/image`;
+
+// 上传前校验
+const beforeUpload = (file: UploadFile): boolean => {
+  const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png';
+  if (!isJpgOrPng) {
+    message.error('只能上传JPG或PNG格式的图片!');
+  }
+  let isLt2M = true;
+  if (file.size !== undefined) {
+    isLt2M = file.size / 1024 / 1024 < 2;
+  }
+  if (!isLt2M) {
+    message.error('图片大小不能超过2MB!');
+  }
+  return isJpgOrPng && isLt2M;
+};
+
 // 获取管理员信息
 const fetchProfile = async () => {
   try {
@@ -148,7 +203,7 @@ const fetchPaymentMethods = async () => {
   try {
     paymentLoading.value = true;
     const res = await getPaymentMethodsApi();
-    paymentMethods.value = res;
+    paymentMethods.value = res.paymentMethods || { qrCodes: [], bankCards: [] };
   } catch (error) {
     console.error('获取收款方式失败:', error);
     message.error('获取收款方式失败');
@@ -184,24 +239,15 @@ const handleSaveProfile = async () => {
 };
 
 // 添加收款方式
-const handleAddPayment = () => {
-  editingPayment.value = null;
-  paymentForm.type = 'alipay';
-  paymentForm.name = '';
-  paymentForm.account = '';
-  paymentForm.qrCode = '';
-  paymentForm.bankName = '';
-  paymentModalVisible.value = true;
-};
-
-// 编辑收款方式
-const handleEditPayment = (record: PaymentMethod) => {
-  editingPayment.value = record;
-  paymentForm.type = record.type;
-  paymentForm.name = record.name;
-  paymentForm.account = record.account;
-  paymentForm.qrCode = record.qrCode || '';
-  paymentForm.bankName = record.bankName || '';
+const handleAddPayment = (type: 'bankCard' | 'qrCode') => {
+  paymentType.value = type;
+  // 重置表单
+  qrCodeForm.type = 'alipay';
+  qrCodeForm.name = '';
+  qrCodeForm.imageUrl = '';
+  bankCardForm.bankName = '';
+  bankCardForm.cardNumber = '';
+  bankCardForm.accountName = '';
   paymentModalVisible.value = true;
 };
 
@@ -209,24 +255,40 @@ const handleEditPayment = (record: PaymentMethod) => {
 const handleSavePayment = async () => {
   try {
     loading.value = true;
-    const data = {
-      type: paymentForm.type,
-      name: paymentForm.name,
-      account: paymentForm.account,
-      qrCode: paymentForm.qrCode,
-      bankName: paymentForm.bankName,
-    };
 
-    if (editingPayment.value) {
-      await updatePaymentMethodApi(editingPayment.value.id!, data);
-      message.success('收款方式更新成功');
+    if (paymentType.value === 'qrCode') {
+      // 验证收款码表单
+      if (!qrCodeForm.name || !qrCodeForm.imageUrl) {
+        message.error('请填写完整的收款码信息');
+        return;
+      }
+      const result = await addQRCodePaymentApi(qrCodeForm);
+      paymentMethods.value = result.paymentMethods;
+      message.success('收款码添加成功');
     } else {
-      await addPaymentMethodApi(data);
-      message.success('收款方式添加成功');
+      // 验证银行卡表单
+      if (
+        !bankCardForm.bankName ||
+        !bankCardForm.cardNumber ||
+        !bankCardForm.accountName
+      ) {
+        message.error('请填写完整的银行卡信息');
+        return;
+      }
+
+      // 验证银行卡号格式（16-19位数字）
+      const cardNumberClean = bankCardForm.cardNumber.replace(/\s/g, '');
+      if (!/^\d{16,19}$/.test(cardNumberClean)) {
+        message.error('银行卡号格式不正确，应为16-19位数字');
+        return;
+      }
+
+      const result = await addBankCardPaymentApi(bankCardForm);
+      paymentMethods.value = result.paymentMethods;
+      message.success('银行卡添加成功');
     }
 
     paymentModalVisible.value = false;
-    fetchPaymentMethods();
   } catch (error) {
     console.error('保存收款方式失败:', error);
     message.error('保存收款方式失败');
@@ -235,37 +297,46 @@ const handleSavePayment = async () => {
   }
 };
 
-// 删除收款方式
-const handleDeletePayment = async (record: PaymentMethod) => {
+// 删除收款码
+const handleDeleteQRCode = async (index: number) => {
   try {
-    await deletePaymentMethodApi(record.id!);
-    message.success('收款方式删除成功');
-    fetchPaymentMethods();
+    const result = await deleteQRCodePaymentApi(index);
+    paymentMethods.value = result.paymentMethods;
+    message.success('收款码删除成功');
   } catch (error) {
-    console.error('删除收款方式失败:', error);
-    message.error('删除收款方式失败');
+    console.error('删除收款码失败:', error);
+    message.error('删除收款码失败');
   }
 };
 
-// 设置默认收款方式
-const handleSetDefault = async (record: PaymentMethod) => {
+// 删除银行卡
+const handleDeleteBankCard = async (index: number) => {
   try {
-    await setDefaultPaymentMethodApi(record.id!);
-    message.success('默认收款方式设置成功');
-    fetchPaymentMethods();
+    const result = await deleteBankCardPaymentApi(index);
+    paymentMethods.value = result.paymentMethods;
+    message.success('银行卡删除成功');
   } catch (error) {
-    console.error('设置默认收款方式失败:', error);
-    message.error('设置默认收款方式失败');
+    console.error('删除银行卡失败:', error);
+    message.error('删除银行卡失败');
   }
 };
 
 // 文件上传处理
-const handleUpload = (info: any) => {
-  const { status } = info.file;
-  if (status === 'done') {
-    paymentForm.qrCode = info.file.response?.url || '';
-    message.success('二维码上传成功');
-  } else if (status === 'error') {
+const handleUpload = (info: UploadChangeParam) => {
+  if (info.file.status === 'uploading') {
+    return;
+  }
+
+  if (info.file.status === 'done') {
+    // 从响应中获取图片URL
+    const response = info.file.response;
+    if (response.code === 0) {
+      qrCodeForm.imageUrl = `${import.meta.env.VITE_BASE_URL}${response.data.image.url}`;
+      message.success('二维码上传成功');
+    } else {
+      message.error('二维码上传失败');
+    }
+  } else if (info.file.status === 'error') {
     message.error('二维码上传失败');
   }
 };
@@ -319,59 +390,100 @@ onMounted(() => {
 
     <!-- 收款方式卡片 -->
     <Card title="收款方式" :loading="paymentLoading">
-      <div v-if="paymentMethods.length === 0" class="empty-state">
-        <div class="empty-content">
-          <InboxOutlined class="empty-icon" />
-          <p class="empty-text">暂无收款方式</p>
-          <p class="empty-description">
-            您可以添加支付宝、微信收款码或银行卡信息
-          </p>
-          <Button type="primary" @click="handleAddPayment"> 立即添加 </Button>
+      <template #extra>
+        <div class="add-buttons">
+          <Button
+            type="primary"
+            @click="handleAddPayment('qrCode')"
+            class="mr-2"
+          >
+            添加收款码
+          </Button>
+          <Button type="primary" @click="handleAddPayment('bankCard')">
+            添加银行卡
+          </Button>
         </div>
-      </div>
+      </template>
 
-      <Table
-        v-else
-        :columns="paymentColumns"
-        :data-source="paymentMethods"
-        :pagination="false"
-        row-key="id"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'isDefault'">
-            <Tag :color="record.isDefault ? 'green' : 'default'">
-              {{ record.isDefault ? '默认' : '普通' }}
-            </Tag>
-          </template>
-          <template v-if="column.key === 'action'">
-            <div class="action-buttons">
-              <Button
-                type="link"
-                size="small"
-                @click="handleEditPayment(record as PaymentMethod)"
-              >
-                编辑
-              </Button>
-              <Button
-                v-if="!record.isDefault"
-                type="link"
-                size="small"
-                @click="handleSetDefault(record as PaymentMethod)"
-              >
-                设为默认
-              </Button>
-              <Button
-                type="link"
-                size="small"
-                danger
-                @click="handleDeletePayment(record as PaymentMethod)"
-              >
-                删除
+      <Tabs default-active-key="qrCode">
+        <TabPane key="qrCode" tab="收款码">
+          <div v-if="paymentMethods.qrCodes.length === 0" class="empty-state">
+            <div class="empty-content">
+              <InboxOutlined class="empty-icon" />
+              <p class="empty-text">暂无收款码</p>
+              <p class="empty-description">
+                您可以添加支付宝、微信等收款二维码
+              </p>
+              <Button type="primary" @click="handleAddPayment('qrCode')">
+                立即添加
               </Button>
             </div>
-          </template>
-        </template>
-      </Table>
+          </div>
+
+          <Table
+            v-else
+            :columns="qrCodeColumns"
+            :data-source="paymentMethods.qrCodes"
+            :pagination="false"
+            row-key="name"
+          >
+            <template #bodyCell="{ column, index }">
+              <template v-if="column.key === 'imageUrl'">
+                <div
+                  v-if="paymentMethods.qrCodes[index]?.imageUrl"
+                  class="qr-preview-small"
+                >
+                  <img
+                    :src="paymentMethods.qrCodes[index].imageUrl"
+                    alt="收款码"
+                  />
+                </div>
+                <span v-else>未上传</span>
+              </template>
+              <template v-if="column.key === 'action'">
+                <Popconfirm
+                  title="确定要删除这个收款码吗？"
+                  @confirm="handleDeleteQRCode(index)"
+                >
+                  <Button type="link" size="small" danger>删除</Button>
+                </Popconfirm>
+              </template>
+            </template>
+          </Table>
+        </TabPane>
+
+        <TabPane key="bankCard" tab="银行卡">
+          <div v-if="paymentMethods.bankCards.length === 0" class="empty-state">
+            <div class="empty-content">
+              <InboxOutlined class="empty-icon" />
+              <p class="empty-text">暂无银行卡</p>
+              <p class="empty-description">您可以添加银行卡信息用于收款</p>
+              <Button type="primary" @click="handleAddPayment('bankCard')">
+                立即添加
+              </Button>
+            </div>
+          </div>
+
+          <Table
+            v-else
+            :columns="bankCardColumns"
+            :data-source="paymentMethods.bankCards"
+            :pagination="false"
+            row-key="cardNumber"
+          >
+            <template #bodyCell="{ column, index }">
+              <template v-if="column.key === 'action'">
+                <Popconfirm
+                  title="确定要删除这张银行卡吗？"
+                  @confirm="handleDeleteBankCard(index)"
+                >
+                  <Button type="link" size="small" danger>删除</Button>
+                </Popconfirm>
+              </template>
+            </template>
+          </Table>
+        </TabPane>
+      </Tabs>
     </Card>
 
     <!-- 编辑个人信息弹窗 -->
@@ -398,55 +510,76 @@ onMounted(() => {
     <!-- 收款方式弹窗 -->
     <Modal
       v-model:visible="paymentModalVisible"
-      :title="editingPayment ? '编辑收款方式' : '添加收款方式'"
+      :title="paymentType === 'qrCode' ? '添加收款码' : '添加银行卡'"
       width="600px"
       @ok="handleSavePayment"
       :confirm-loading="loading"
     >
-      <Form :model="paymentForm" layout="vertical">
+      <!-- 收款码表单 -->
+      <Form
+        v-if="paymentType === 'qrCode'"
+        :model="qrCodeForm"
+        layout="vertical"
+      >
         <FormItem label="收款方式类型" required>
-          <RadioGroup v-model:value="paymentForm.type">
+          <RadioGroup v-model:value="qrCodeForm.type">
             <Radio value="alipay">支付宝</Radio>
             <Radio value="wechat">微信</Radio>
-            <Radio value="bank">银行卡</Radio>
+            <Radio value="other">其他</Radio>
           </RadioGroup>
         </FormItem>
 
         <FormItem label="名称" required>
           <Input
-            v-model:value="paymentForm.name"
-            placeholder="请输入收款方式名称"
+            v-model:value="qrCodeForm.name"
+            placeholder="请输入收款码名称"
           />
         </FormItem>
 
-        <FormItem label="账号" required>
-          <Input v-model:value="paymentForm.account" placeholder="请输入账号" />
-        </FormItem>
-
-        <FormItem v-if="paymentForm.type === 'bank'" label="银行名称" required>
-          <Input
-            v-model:value="paymentForm.bankName"
-            placeholder="请输入银行名称"
-          />
-        </FormItem>
-
-        <FormItem v-if="paymentForm.type !== 'bank'" label="收款二维码">
+        <FormItem label="收款二维码" required>
           <Upload
-            name="file"
+            name="image"
             list-type="picture-card"
             class="qr-uploader"
             :show-upload-list="false"
-            action="/api/upload"
+            :action="uploadUrl"
+            :headers="uploadHeaders"
+            :before-upload="beforeUpload"
             @change="handleUpload"
           >
-            <div v-if="paymentForm.qrCode" class="qr-preview">
-              <img :src="paymentForm.qrCode" alt="收款码" />
+            <div v-if="qrCodeForm.imageUrl" class="qr-preview">
+              <img :src="qrCodeForm.imageUrl" alt="收款码" />
             </div>
             <div v-else class="upload-button">
               <PlusOutlined />
               <div class="ant-upload-text">上传二维码</div>
             </div>
           </Upload>
+        </FormItem>
+      </Form>
+
+      <!-- 银行卡表单 -->
+      <Form v-else :model="bankCardForm" layout="vertical">
+        <FormItem label="银行名称" required>
+          <Input
+            v-model:value="bankCardForm.bankName"
+            placeholder="请输入银行名称"
+          />
+        </FormItem>
+
+        <FormItem label="银行卡号" required>
+          <Input
+            v-model:value="bankCardForm.cardNumber"
+            placeholder="请输入银行卡号"
+            :maxlength="19"
+          />
+        </FormItem>
+
+        <FormItem label="开户姓名" required>
+          <Input
+            v-model:value="bankCardForm.accountName"
+            placeholder="请输入开户姓名"
+          />
         </FormItem>
       </Form>
     </Modal>
@@ -460,6 +593,15 @@ onMounted(() => {
 
 .mb-4 {
   margin-bottom: 16px;
+}
+
+.mr-2 {
+  margin-right: 8px;
+}
+
+.add-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 .empty-state {
@@ -491,11 +633,6 @@ onMounted(() => {
   color: #8c8c8c;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
 .qr-uploader .upload-button {
   display: flex;
   flex-direction: column;
@@ -518,5 +655,12 @@ onMounted(() => {
   height: 100px;
   object-fit: cover;
   border-radius: 6px;
+}
+
+.qr-preview-small img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
 }
 </style>
