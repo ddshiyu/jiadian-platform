@@ -1,0 +1,9 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+*/node_modules/
+.git/
+*/dist/
+*/build/
+*.log
+server/dist/
+admin/apps/backend-mock/
+admin/packages/
