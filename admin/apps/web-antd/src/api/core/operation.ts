@@ -202,6 +202,46 @@ export function batchOperateProductsApi(
 }
 
 /**
+ * 下载商品导入模板
+ */
+export async function downloadProductTemplateApi() {
+  // 直接使用 fetch API 来避免响应拦截器的干扰
+  const { useAccessStore } = await import('@vben/stores');
+  const accessStore = useAccessStore();
+  const { useAppConfig } = await import('@vben/hooks');
+  const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
+
+  const response = await fetch(`${apiURL}/admin/products/template/download`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessStore.accessToken}`,
+      'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`HTTP ${response.status}: ${errorText}`);
+  }
+
+  return response.blob();
+}
+
+/**
+ * Excel批量导入商品
+ * @param file Excel文件
+ */
+export function importProductsFromExcelApi(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return requestClient.post('/admin/products/import/excel', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+}
+
+/**
  * 商品分类相关接口
  */
 export interface Category {

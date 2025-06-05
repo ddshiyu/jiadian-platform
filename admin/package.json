@@ -118,5 +118,8 @@
       "canvas",
       "node-gyp"
     ]
+  },
+  "dependencies": {
+    "file-saver": "^2.0.5"
   }
 }

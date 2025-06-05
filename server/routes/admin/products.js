@@ -3,6 +3,27 @@ const router = express.Router();
 const { Product, Category, AdminUser } = require('../../models');
 const { Op } = require('sequelize');
 const adminAuth = require('../../middleware/adminAuth');
+const XLSX = require('xlsx');
+const multer = require('multer');
+const path = require('path');
+
+// 配置multer用于文件上传
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['.xlsx', '.xls'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('只支持Excel文件格式(.xlsx, .xls)'));
+    }
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  }
+});
 
 /**
  * @api {get} /admin/products 获取商品列表
@@ -411,6 +432,324 @@ router.post('/batch', adminAuth, async (req, res) => {
     console.error('批量操作商品失败:', error);
     res.status(500).json({
       message: '批量操作商品失败',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @api {get} /admin/products/template/download 下载商品导入模板
+ * @apiDescription 下载Excel格式的商品导入模板
+ * @apiHeader {String} Authorization Bearer JWT
+ */
+router.get('/template/download', adminAuth, async (req, res) => {
+  try {
+    // 获取分类列表用于填充分类选项
+    const categories = await Category.findAll({
+      attributes: ['id', 'name'],
+      where: { status: 'active' }
+    });
+
+    // 创建模板数据
+    const templateData = [
+      {
+        '商品名称*': '示例商品名称',
+        '商品描述': '这是一个示例商品的详细描述',
+        '商品价格*': 99.99,
+        '原价': 120.00,
+        '批发价格*': 85.00,
+        '批发阈值*': 10,
+        'VIP价格*': 89.99,
+        '库存数量*': 100,
+        '分类ID*': categories.length > 0 ? categories[0].id : 1,
+        '商品状态*': 'off_sale',
+        '是否推荐': 'false',
+        '封面图URL': 'https://example.com/cover.jpg',
+        '商品图片URLs': 'https://example.com/1.jpg,https://example.com/2.jpg'
+      },
+      {
+        '商品名称*': '请在此行开始填写实际数据',
+        '商品描述': '商品的详细介绍，可选填',
+        '商品价格*': '',
+        '原价': '',
+        '批发价格*': '',
+        '批发阈值*': '',
+        'VIP价格*': '',
+        '库存数量*': '',
+        '分类ID*': '',
+        '商品状态*': '',
+        '是否推荐': '',
+        '封面图URL': '',
+        '商品图片URLs': ''
+      }
+    ];
+
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+
+    // 创建商品数据工作表
+    const ws = XLSX.utils.json_to_sheet(templateData);
+
+    // 设置列宽
+    const colWidths = [
+      { wch: 20 }, // 商品名称
+      { wch: 30 }, // 商品描述
+      { wch: 12 }, // 商品价格
+      { wch: 10 }, // 原价
+      { wch: 12 }, // 批发价格
+      { wch: 12 }, // 批发阈值
+      { wch: 12 }, // VIP价格
+      { wch: 12 }, // 库存数量
+      { wch: 10 }, // 分类ID
+      { wch: 12 }, // 商品状态
+      { wch: 10 }, // 是否推荐
+      { wch: 25 }, // 封面图URL
+      { wch: 40 }  // 商品图片URLs
+    ];
+    ws['!cols'] = colWidths;
+
+    // 添加商品数据工作表
+    XLSX.utils.book_append_sheet(wb, ws, '商品数据');
+
+    // 创建分类参考工作表
+    if (categories.length > 0) {
+      const categoryData = categories.map(cat => ({
+        '分类ID': cat.id,
+        '分类名称': cat.name
+      }));
+      const categoryWs = XLSX.utils.json_to_sheet(categoryData);
+      categoryWs['!cols'] = [{ wch: 10 }, { wch: 20 }];
+      XLSX.utils.book_append_sheet(wb, categoryWs, '分类参考');
+    }
+
+    // 创建填写说明工作表
+    const instructionData = [
+      { '字段名': '商品名称*', '说明': '必填，商品的名称', '示例': '苹果手机' },
+      { '字段名': '商品描述', '说明': '可选，商品的详细描述', '示例': '最新款苹果手机，性能强劲' },
+      { '字段名': '商品价格*', '说明': '必填，商品的销售价格，数字格式', '示例': '5999.00' },
+      { '字段名': '原价', '说明': '可选，商品的原价，数字格式', '示例': '6999.00' },
+      { '字段名': '批发价格*', '说明': '必填，批发价格，数字格式', '示例': '5500.00' },
+      { '字段名': '批发阈值*', '说明': '必填，达到此数量可享批发价，整数', '示例': '10' },
+      { '字段名': 'VIP价格*', '说明': '必填，VIP会员价格，数字格式', '示例': '5799.00' },
+      { '字段名': '库存数量*', '说明': '必填，商品库存数量，整数', '示例': '100' },
+      { '字段名': '分类ID*', '说明': '必填，商品分类ID，参考分类参考表', '示例': '1' },
+      { '字段名': '商品状态*', '说明': '必填，on_sale(上架)或off_sale(下架)', '示例': 'off_sale' },
+      { '字段名': '是否推荐', '说明': '可选，true或false', '示例': 'false' },
+      { '字段名': '封面图URL', '说明': '可选，商品封面图链接', '示例': 'https://example.com/cover.jpg' },
+      { '字段名': '商品图片URLs', '说明': '可选，多张图片用英文逗号分隔', '示例': 'url1.jpg,url2.jpg' }
+    ];
+
+    const instructionWs = XLSX.utils.json_to_sheet(instructionData);
+    instructionWs['!cols'] = [{ wch: 15 }, { wch: 40 }, { wch: 30 }];
+    XLSX.utils.book_append_sheet(wb, instructionWs, '填写说明');
+
+    // 生成Excel文件
+    const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    // 设置响应头
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="product_template.xlsx"; filename*=UTF-8\'\'%E5%95%86%E5%93%81%E5%AF%BC%E5%85%A5%E6%A8%A1%E6%9D%BF.xlsx');
+
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error('下载模板失败:', error);
+    res.status(500).json({
+      message: '下载模板失败',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @api {post} /admin/products/import/excel Excel批量导入商品
+ * @apiDescription 通过Excel文件批量导入商品
+ * @apiHeader {String} Authorization Bearer JWT
+ */
+router.post('/import/excel', adminAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: '请选择要上传的Excel文件' });
+    }
+
+    // 读取Excel文件
+    const workbook = XLSX.read(req.file.buffer);
+    const sheetName = workbook.SheetNames[0]; // 使用第一个工作表
+    const worksheet = workbook.Sheets[sheetName];
+
+    // 将Excel数据转换为JSON
+    const rawData = XLSX.utils.sheet_to_json(worksheet);
+
+    if (!rawData || rawData.length === 0) {
+      return res.status(400).json({ message: 'Excel文件中没有数据' });
+    }
+
+    // 验证和转换数据
+    const products = [];
+    const errors = [];
+
+    // 确定商品所属的商家ID
+    let merchantId;
+    if (req.adminRole === 'admin') {
+      merchantId = req.adminId; // 管理员默认设为自己，也可以支持指定
+    } else {
+      merchantId = req.adminId; // 商家只能创建属于自己的商品
+    }
+
+    for (let i = 0; i < rawData.length; i++) {
+      const row = rawData[i];
+      const rowIndex = i + 2; // Excel行号（从第2行开始，第1行是标题）
+
+      try {
+        // 跳过示例行和空行
+        if (!row['商品名称*'] ||
+            row['商品名称*'] === '示例商品名称' ||
+            row['商品名称*'] === '请在此行开始填写实际数据') {
+          continue;
+        }
+
+        // 验证必填字段
+        const requiredFields = [
+          '商品名称*', '商品价格*', '批发价格*', '批发阈值*',
+          'VIP价格*', '库存数量*', '分类ID*', '商品状态*'
+        ];
+
+        for (const field of requiredFields) {
+          if (!row[field] && row[field] !== 0) {
+            errors.push(`第${rowIndex}行：${field}为必填项`);
+            continue;
+          }
+        }
+
+        // 验证数字字段
+        const price = parseFloat(row['商品价格*']);
+        const wholesalePrice = parseFloat(row['批发价格*']);
+        const vipPrice = parseFloat(row['VIP价格*']);
+        const stock = parseInt(row['库存数量*']);
+        const wholesaleThreshold = parseInt(row['批发阈值*']);
+        const categoryId = parseInt(row['分类ID*']);
+
+        if (isNaN(price) || price <= 0) {
+          errors.push(`第${rowIndex}行：商品价格格式不正确`);
+          continue;
+        }
+
+        if (isNaN(wholesalePrice) || wholesalePrice <= 0) {
+          errors.push(`第${rowIndex}行：批发价格格式不正确`);
+          continue;
+        }
+
+        if (isNaN(vipPrice) || vipPrice <= 0) {
+          errors.push(`第${rowIndex}行：VIP价格格式不正确`);
+          continue;
+        }
+
+        if (isNaN(stock) || stock < 0) {
+          errors.push(`第${rowIndex}行：库存数量格式不正确`);
+          continue;
+        }
+
+        if (isNaN(wholesaleThreshold) || wholesaleThreshold <= 0) {
+          errors.push(`第${rowIndex}行：批发阈值格式不正确`);
+          continue;
+        }
+
+        if (isNaN(categoryId)) {
+          errors.push(`第${rowIndex}行：分类ID格式不正确`);
+          continue;
+        }
+
+        // 验证商品状态
+        const status = row['商品状态*'];
+        if (!['on_sale', 'off_sale'].includes(status)) {
+          errors.push(`第${rowIndex}行：商品状态只能是on_sale或off_sale`);
+          continue;
+        }
+
+        // 验证是否推荐
+        let isRecommended = false;
+        if (row['是否推荐']) {
+          const recommendedStr = String(row['是否推荐']).toLowerCase();
+          if (recommendedStr === 'true') {
+            isRecommended = true;
+          } else if (recommendedStr === 'false') {
+            isRecommended = false;
+          } else {
+            errors.push(`第${rowIndex}行：是否推荐只能是true或false`);
+            continue;
+          }
+        }
+
+        // 处理图片URLs
+        let images = [];
+        if (row['商品图片URLs']) {
+          images = row['商品图片URLs'].split(',').map(url => url.trim()).filter(url => url);
+        }
+
+        // 处理原价
+        let originalPrice = null;
+        if (row['原价']) {
+          originalPrice = parseFloat(row['原价']);
+          if (isNaN(originalPrice)) {
+            errors.push(`第${rowIndex}行：原价格式不正确`);
+            continue;
+          }
+        }
+
+        // 构建商品对象
+        const productData = {
+          name: row['商品名称*'],
+          description: row['商品描述'] || '',
+          price: price,
+          originalPrice: originalPrice,
+          wholesalePrice: wholesalePrice,
+          wholesaleThreshold: wholesaleThreshold,
+          vipPrice: vipPrice,
+          stock: stock,
+          categoryId: categoryId,
+          status: status,
+          isRecommended: isRecommended,
+          cover: row['封面图URL'] || '',
+          images: images,
+          merchantId: merchantId
+        };
+
+        products.push(productData);
+
+      } catch (error) {
+        errors.push(`第${rowIndex}行：数据处理错误 - ${error.message}`);
+      }
+    }
+
+    // 如果有错误，返回错误信息
+    if (errors.length > 0) {
+      return res.status(400).json({
+        message: '数据验证失败',
+        errors: errors.slice(0, 20), // 最多返回20个错误
+        totalErrors: errors.length
+      });
+    }
+
+    if (products.length === 0) {
+      return res.status(400).json({ message: 'Excel中没有有效的商品数据' });
+    }
+
+    // 批量创建商品
+    const createdProducts = await Product.bulkCreate(products, {
+      validate: true,
+      returning: true
+    });
+
+    res.status(200).json({
+      message: '批量导入成功',
+      successCount: createdProducts.length,
+      totalCount: rawData.length,
+      products: createdProducts
+    });
+
+  } catch (error) {
+    console.error('Excel导入失败:', error);
+    res.status(500).json({
+      message: 'Excel导入失败',
       error: error.message
     });
   }

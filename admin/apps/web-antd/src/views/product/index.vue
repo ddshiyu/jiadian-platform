@@ -12,7 +12,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 
 import { useAccessStore } from '@vben/stores';
 
-import { PlusOutlined } from '@ant-design/icons-vue';
+import { DownloadOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons-vue';
 import {
   Button,
   Card,
@@ -40,12 +40,16 @@ import dayjs from 'dayjs';
 import {
   createProductApi,
   deleteProductApi,
+  downloadProductTemplateApi,
   getCategoryListApi,
   getProductDetailApi,
   getProductListApi,
+  importProductsFromExcelApi,
   updateProductApi,
   updateProductStatusApi,
 } from '#/api/core/operation';
+
+import { saveAs } from 'file-saver';
 
 const accessStore = useAccessStore();
 
@@ -235,6 +239,11 @@ const imageFileList = ref<FileItem[]>([]);
 const modalVisible = ref(false);
 const submitLoading = ref(false);
 const modalTitle = computed(() => (formData.id ? '编辑商品' : '新增商品'));
+
+// Excel导入相关
+const importModalVisible = ref(false);
+const importLoading = ref(false);
+const uploadFileList = ref<UploadFile[]>([]);
 
 // 上传相关
 const uploadHeaders = {
@@ -544,6 +553,117 @@ const formatDate = (date: string): string => {
   if (!date) return '-';
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss');
 };
+
+// 下载商品导入模板
+const handleDownloadTemplate = async () => {
+  try {
+    const blob = await downloadProductTemplateApi();
+
+    // 验证 Blob 对象
+    if (!blob || blob.size === 0) {
+      throw new Error('下载的文件为空');
+    }
+
+    // 使用中文文件名
+    const fileName = '商品导入模板.xlsx';
+
+    // 使用 file-saver 下载
+    try {
+      saveAs(blob, fileName);
+      message.success('模板下载成功');
+    } catch (saveError) {
+      console.error('file-saver 保存失败:', saveError);
+      // 回退到原生方法
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      message.success('模板下载成功');
+    }
+  } catch (error) {
+    console.error('下载模板失败:', error);
+    message.error(`下载模板失败: ${error instanceof Error ? error.message : '未知错误'}`);
+  }
+};
+
+
+
+// 打开Excel导入弹窗
+const handleOpenImport = () => {
+  uploadFileList.value = [];
+  importModalVisible.value = true;
+};
+
+// Excel文件上传前校验
+const beforeExcelUpload = (file: UploadFile): boolean => {
+  const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                 file.type === 'application/vnd.ms-excel';
+  if (!isExcel) {
+    message.error('只能上传Excel格式的文件!');
+  }
+  const isLt10M = (file.size || 0) / 1024 / 1024 < 10;
+  if (!isLt10M) {
+    message.error('文件大小不能超过10MB!');
+  }
+  return isExcel && isLt10M;
+};
+
+// Excel文件上传变化处理
+const handleExcelUploadChange = (info: UploadChangeParam) => {
+  uploadFileList.value = [...info.fileList].slice(-1); // 只保留最新的一个文件
+};
+
+// 确认Excel导入
+const handleConfirmImport = async () => {
+  if (uploadFileList.value.length === 0) {
+    message.error('请选择要导入的Excel文件');
+    return;
+  }
+
+  const uploadFile = uploadFileList.value[0];
+  if (!uploadFile?.originFileObj) {
+    message.error('文件格式错误');
+    return;
+  }
+
+  const file = uploadFile.originFileObj;
+
+  try {
+    importLoading.value = true;
+    const response = await importProductsFromExcelApi(file as File);
+
+    message.success(`导入成功！成功导入 ${response.successCount} 个商品`);
+    importModalVisible.value = false;
+    uploadFileList.value = [];
+    fetchTableData(); // 刷新商品列表
+  } catch (error: any) {
+    console.error('Excel导入失败:', error);
+
+    // 显示详细错误信息
+    if (error.response?.data?.errors) {
+      const errors = error.response.data.errors;
+      const errorMsg = errors.slice(0, 5).join('\n'); // 显示前5个错误
+      message.error(`导入失败：\n${errorMsg}${errors.length > 5 ? '\n...' : ''}`);
+    } else {
+      message.error(error.response?.data?.message || 'Excel导入失败');
+    }
+  } finally {
+    importLoading.value = false;
+  }
+};
+
+// 取消Excel导入
+const handleCancelImport = () => {
+  uploadFileList.value = [];
+  importModalVisible.value = false;
+};
+
+
 </script>
 
 <template>
@@ -616,10 +736,20 @@ const formatDate = (date: string): string => {
       <div class="table-header">
         <div class="table-title">商品列表</div>
         <div class="table-action">
-          <Button type="primary" @click="handleAdd">
-            <template #icon><PlusOutlined /></template>
-            新增商品
-          </Button>
+          <Space>
+            <Button @click="handleDownloadTemplate">
+              <template #icon><DownloadOutlined /></template>
+              下载模板
+            </Button>
+            <Button @click="handleOpenImport">
+              <template #icon><UploadOutlined /></template>
+              Excel导入
+            </Button>
+            <Button type="primary" @click="handleAdd">
+              <template #icon><PlusOutlined /></template>
+              新增商品
+            </Button>
+          </Space>
         </div>
       </div>
 
@@ -843,6 +973,53 @@ const formatDate = (date: string): string => {
         </Button>
       </template>
     </Modal>
+
+    <!-- Excel导入弹窗 -->
+    <Modal
+      v-model:visible="importModalVisible"
+      title="Excel批量导入商品"
+      width="600px"
+      :mask-closable="false"
+      @cancel="handleCancelImport"
+    >
+      <div class="import-content">
+        <div class="import-tips">
+          <h4>导入说明：</h4>
+          <ul>
+            <li>请先下载模板文件，按照模板格式填写商品信息</li>
+            <li>必填字段：商品名称、商品价格、批发价格、批发阈值、VIP价格、库存数量、分类ID、商品状态</li>
+            <li>商品状态只能填写：on_sale（上架）或 off_sale（下架）</li>
+            <li>是否推荐只能填写：true 或 false</li>
+            <li>分类ID请参考模板中的分类参考表</li>
+            <li>多张商品图片URL请用英文逗号分隔</li>
+            <li>文件大小不能超过10MB</li>
+          </ul>
+        </div>
+
+        <div class="upload-area">
+          <Upload
+            v-model:file-list="uploadFileList"
+            :before-upload="beforeExcelUpload"
+            :max-count="1"
+            accept=".xlsx,.xls"
+            @change="handleExcelUploadChange"
+          >
+            <Button>
+              <template #icon><UploadOutlined /></template>
+              选择Excel文件
+            </Button>
+          </Upload>
+          <div class="upload-tip">支持扩展名：.xlsx .xls</div>
+        </div>
+      </div>
+
+      <template #footer>
+        <Button @click="handleCancelImport">取消</Button>
+        <Button type="primary" :loading="importLoading" @click="handleConfirmImport">
+          确认导入
+        </Button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -897,5 +1074,44 @@ const formatDate = (date: string): string => {
   font-size: 12px;
   color: #999;
   margin-top: 4px;
+}
+
+.import-content {
+  .import-tips {
+    margin-bottom: 24px;
+    padding: 16px;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+
+    h4 {
+      margin: 0 0 12px 0;
+      color: #1890ff;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 20px;
+
+      li {
+        margin-bottom: 8px;
+        color: #666;
+        line-height: 1.4;
+      }
+    }
+  }
+
+  .upload-area {
+    text-align: center;
+    padding: 24px;
+    border: 2px dashed #d9d9d9;
+    border-radius: 6px;
+    background-color: #fafafa;
+
+    .upload-tip {
+      margin-top: 12px;
+      color: #999;
+      font-size: 12px;
+    }
+  }
 }
 </style>
