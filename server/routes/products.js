@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Product, Category, Order, OrderItem, Address } = require('../models');
+const { Product, Category, Order, OrderItem, Address, AdminUser } = require('../models');
 const auth = require('../middleware/auth');
 const { Op } = require('sequelize');
 const WxPay = require('wechatpay-node-v3');
@@ -69,6 +69,12 @@ router.get('/', async (req, res) => {
         {
           model: Category,
           attributes: ['id', 'name']
+        },
+        {
+          model: AdminUser,
+          as: 'merchant',
+          attributes: ['id', 'username', 'role'],
+          required: false
         }
       ],
       order: [[sort, order]],
@@ -161,6 +167,12 @@ router.get('/search', async (req, res) => {
         {
           model: Category,
           attributes: ['id', 'name']
+        },
+        {
+          model: AdminUser,
+          as: 'merchant',
+          attributes: ['id', 'username', 'role'],
+          required: false
         }
       ],
       order: [[sort, order]],
@@ -196,6 +208,12 @@ router.get('/:id', async (req, res) => {
         {
           model: Category,
           attributes: ['id', 'name']
+        },
+        {
+          model: AdminUser,
+          as: 'merchant',
+          attributes: ['id', 'username', 'role'],
+          required: false
         }
       ]
     });
@@ -240,6 +258,7 @@ router.post('/', auth, async (req, res) => {
       images,
       status: status || 'off_sale',
       categoryId,
+      merchantId: req.user.id, // 设置当前登录用户为商户
       isRecommended: isRecommended || false
     });
 

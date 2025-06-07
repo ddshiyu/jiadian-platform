@@ -30,6 +30,8 @@
       </view>
       <!-- VIP价格标签 -->
       <VipTag :price="product.price" :vip-price="product.vipPrice" />
+      <!-- 自营标签 -->
+      <SelfOperatedTag :product="product" />
       <nut-ellipsis
         :content="product.name"
         direction="end"
@@ -88,6 +90,7 @@ import { productApi } from '../../api/product';
 import { cartApi } from '../../api/cart';
 import { onLoad } from '@dcloudio/uni-app';
 import VipTag from '@/components/VipTag.vue';
+import SelfOperatedTag from '@/components/SelfOperatedTag.vue';
 
 // 从App.vue注入用户信息
 const userInfo = inject('userInfo');
@@ -361,6 +364,11 @@ const navigateToCart = () => {
 /* VIP价格标签样式 */
 :deep(.vip-tag) {
   margin-bottom: 20rpx;
+}
+
+/* 自营标签样式 */
+:deep(.self-operated-tag) {
+  margin-bottom: 12rpx;
 }
 
 :deep(.vip-price) {

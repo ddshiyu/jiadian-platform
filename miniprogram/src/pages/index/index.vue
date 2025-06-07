@@ -52,12 +52,15 @@
             height="345"
           ></image>
           <view class="product-info">
-            <nut-ellipsis
-              :content="item.name"
-              direction="end"
-              rows="2"
-              class="product-name"
-            ></nut-ellipsis>
+            <view class="product-name-box">
+              <SelfOperatedTag :product="item" />
+              <nut-ellipsis
+                :content="item.name"
+                direction="end"
+                rows="2"
+                class="product-name"
+              ></nut-ellipsis>
+            </view>
             <view class="product-price-box">
               <nut-price :price="item.price" size="normal" :thousands="true"></nut-price>
               <text v-if="item.originalPrice" class="product-original-price">¥{{ item.originalPrice }}</text>
@@ -131,6 +134,7 @@ import { homeApi } from '../../api/index';
 import { productApi } from '../../api/product';
 import { userApi } from '../../api/user';
 import { onLoad } from '@dcloudio/uni-app';
+import SelfOperatedTag from '@/components/SelfOperatedTag.vue';
 
 // 轮播图数据
 const bannerList = ref([]);
@@ -462,6 +466,10 @@ const closeAnnouncement = () => {
 
 .product-info {
   padding: 15rpx;
+}
+
+.product-name-box {
+  margin-bottom: 10rpx;
 }
 
 .product-name {

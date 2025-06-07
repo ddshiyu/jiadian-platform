@@ -71,12 +71,15 @@
         >
           <image class="product-image" :src="item.cover" mode="aspectFill"></image>
           <view class="product-info">
-            <nut-ellipsis
-              :content="item.name"
-              direction="end"
-              rows="2"
-              class="product-name"
-            ></nut-ellipsis>
+            <view class="product-name-section">
+              <SelfOperatedTag :product="item" />
+              <nut-ellipsis
+                :content="item.name"
+                direction="end"
+                rows="2"
+                class="product-name"
+              ></nut-ellipsis>
+            </view>
             <view class="product-price-box">
               <nut-price :price="item.price" size="normal" :thousands="true"></nut-price>
               <text v-if="item.originalPrice" class="product-original-price">¥{{ item.originalPrice }}</text>
@@ -96,8 +99,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { productApi } from '../../api/product';
+import SelfOperatedTag from '@/components/SelfOperatedTag.vue';
 
 // 搜索关键词
 const keyword = ref('');
@@ -188,6 +192,7 @@ const searchProducts = async () => {
     
     const res = await productApi.search(keyword.value);
     console.log('搜索结果:', res);
+    console.log('搜索结果详细数据:', JSON.stringify(res, null, 2));
     
     if (res && res.code === 0 && res.data) {
       // 处理搜索结果
@@ -195,6 +200,11 @@ const searchProducts = async () => {
         searchResults.value = res.data;
       } else if (res.data.list && Array.isArray(res.data.list)) {
         searchResults.value = res.data.list;
+        console.log('搜索到的商品数据:', JSON.stringify(res.data.list.map(item => ({
+          id: item.id,
+          name: item.name,
+          merchant: item.merchant
+        })), null, 2));
       } else {
         searchResults.value = [];
       }
@@ -351,6 +361,10 @@ const navigateToProduct = (id) => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+}
+
+.product-name-section {
+  margin-bottom: 10rpx;
 }
 
 .product-name {

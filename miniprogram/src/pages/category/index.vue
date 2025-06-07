@@ -33,7 +33,10 @@
             >
               <image class="product-image" :src="item.cover" mode="aspectFill"></image>
               <view class="product-info">
-                <text class="product-name">{{ item.name }}</text>
+                <view class="product-name-section">
+                  <SelfOperatedTag :product="item" />
+                  <text class="product-name">{{ item.name }}</text>
+                </view>
                 <view class="product-price-box">
                   <text class="product-price">¥{{ item.price }}</text>
                   <text v-if="item.originalPrice" class="product-original-price">¥{{ item.originalPrice }}</text>
@@ -57,6 +60,7 @@
 import { ref, onMounted, watch } from 'vue';
 import { productApi } from '../../api/product';
 import { homeApi } from '../../api/index';
+import SelfOperatedTag from '@/components/SelfOperatedTag.vue';
 
 // 分类列表
 const categoryList = ref([]);
@@ -165,6 +169,11 @@ const loadProducts = async () => {
         productList.value = res.data;
       } else if (res.data.list && Array.isArray(res.data.list)) {
         productList.value = res.data.list;
+        console.log('分类商品数据:', JSON.stringify(res.data.list.map(item => ({
+          id: item.id,
+          name: item.name,
+          merchant: item.merchant
+        })), null, 2));
       } else {
         // 使用默认数据
         useDefaultProducts();
@@ -306,6 +315,10 @@ const navigateToProduct = (id) => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+}
+
+.product-name-section {
+  margin-bottom: 10rpx;
 }
 
 .product-name {
