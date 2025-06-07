@@ -10,7 +10,7 @@ import type { ProductListParams } from '#/api/core/operation';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 
 import { DownloadOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons-vue';
 import {
@@ -52,6 +52,12 @@ import {
 import { saveAs } from 'file-saver';
 
 const accessStore = useAccessStore();
+const userStore = useUserStore();
+
+// 计算当前用户是否为管理员
+const isAdmin = computed(() => {
+  return userStore.userInfo?.role === 'admin';
+});
 
 // 定义接口
 interface CategoryOption {
@@ -391,7 +397,7 @@ const handleAdd = () => {
     vipPrice: 0,
     stock: 0,
     categoryId: undefined,
-    status: 'off_sale',
+    status: 'off_sale', // 默认为下架状态
     cover: '',
     images: [],
     isRecommended: false,
@@ -428,6 +434,12 @@ const handleEdit = async (record: any) => {
         images: productData.images || [],
         isRecommended: productData.isRecommended || false,
       };
+
+      // 如果不是管理员且商品当前为上架状态，编辑时强制改为下架
+      if (!isAdmin.value && productToEdit.status === 'on_sale') {
+        productToEdit.status = 'off_sale';
+        message.warning('非管理员用户编辑商品时将自动设置为下架状态');
+      }
 
       Object.assign(formData, productToEdit);
 
@@ -469,6 +481,13 @@ const handleDelete = async (record: any) => {
 const handleStatusChange = async (record: any) => {
   try {
     const newStatus = record.status === 'on_sale' ? 'off_sale' : 'on_sale';
+
+    // 验证非管理员不能将商品上架
+    if (!isAdmin.value && newStatus === 'on_sale') {
+      message.error('只有管理员可以将商品设置为上架状态');
+      return;
+    }
+
     await updateProductStatusApi(record.id, newStatus);
     message.success(newStatus === 'on_sale' ? '商品已上架' : '商品已下架');
     fetchTableData();
@@ -488,6 +507,13 @@ const handleSubmit = async () => {
   if (formRef.value) {
     try {
       await formRef.value.validate();
+
+      // 验证非管理员不能设置商品为上架状态
+      if (!isAdmin.value && formData.status === 'on_sale') {
+        message.error('只有管理员可以将商品设置为上架状态');
+        return;
+      }
+
       submitLoading.value = true;
 
       // 准备提交的数据
@@ -811,9 +837,15 @@ const handleCancelImport = () => {
                 <a class="danger-link">删除</a>
               </Popconfirm>
               <Divider type="vertical" />
-              <a @click="handleStatusChange(record)">
+              <a
+                v-if="isAdmin || record.status === 'on_sale'"
+                @click="handleStatusChange(record)"
+              >
                 {{ record.status === 'on_sale' ? '下架' : '上架' }}
               </a>
+              <span v-else class="disabled-text">
+                上架（需管理员权限）
+              </span>
             </Space>
           </template>
         </template>
@@ -908,9 +940,12 @@ const handleCancelImport = () => {
         </FormItem>
         <FormItem label="状态" name="status">
           <RadioGroup v-model:value="formData.status">
-            <Radio value="on_sale">上架</Radio>
+            <Radio value="on_sale" :disabled="!isAdmin">上架</Radio>
             <Radio value="off_sale">下架</Radio>
           </RadioGroup>
+          <div v-if="!isAdmin" class="form-item-help text-warning">
+            提示：只有管理员可以将商品设置为上架状态
+          </div>
         </FormItem>
         <FormItem label="是否推荐" name="isRecommended">
           <Switch
@@ -1074,6 +1109,15 @@ const handleCancelImport = () => {
   font-size: 12px;
   color: #999;
   margin-top: 4px;
+
+  &.text-warning {
+    color: #faad14;
+  }
+}
+
+.disabled-text {
+  color: #d9d9d9;
+  cursor: not-allowed;
 }
 
 .import-content {
