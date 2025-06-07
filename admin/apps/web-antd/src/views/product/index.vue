@@ -583,11 +583,13 @@ const formatDate = (date: string): string => {
 // 下载商品导入模板
 const handleDownloadTemplate = async () => {
   try {
+    console.log('开始下载模板...');
     const blob = await downloadProductTemplateApi();
+    console.log('收到Blob:', { size: blob.size, type: blob.type });
 
     // 验证 Blob 对象
-    if (!blob || blob.size === 0) {
-      throw new Error('下载的文件为空');
+    if (!blob || !(blob instanceof Blob) || blob.size === 0) {
+      throw new Error('下载的文件为空或格式不正确');
     }
 
     // 使用中文文件名
@@ -665,7 +667,7 @@ const handleConfirmImport = async () => {
     console.log('Excel导入响应:', response);
 
     if (response.success) {
-      message.success(`导入成功！成功导入 ${response.data.successCount} 个商品`);
+      message.success(`导入成功！成功导入 ${response.data?.successCount || 0} 个商品`);
       importModalVisible.value = false;
       uploadFileList.value = [];
       // 刷新商品列表
