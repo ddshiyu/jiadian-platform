@@ -567,9 +567,17 @@ router.get('/template/download', adminAuth, async (req, res) => {
  */
 router.post('/import/excel', adminAuth, upload.single('file'), async (req, res) => {
   try {
+    console.log('开始Excel导入，用户ID:', req.adminId, '用户角色:', req.adminRole);
+
     if (!req.file) {
-      return res.status(400).json({ message: '请选择要上传的Excel文件' });
+      return res.status(400).json({
+        code: 400,
+        success: false,
+        message: '请选择要上传的Excel文件'
+      });
     }
+
+    console.log('接收到文件:', req.file.originalname, '大小:', req.file.size);
 
     // 读取Excel文件
     const workbook = XLSX.read(req.file.buffer);
@@ -579,8 +587,14 @@ router.post('/import/excel', adminAuth, upload.single('file'), async (req, res) 
     // 将Excel数据转换为JSON
     const rawData = XLSX.utils.sheet_to_json(worksheet);
 
+    console.log('解析到的数据行数:', rawData.length);
+
     if (!rawData || rawData.length === 0) {
-      return res.status(400).json({ message: 'Excel文件中没有数据' });
+      return res.status(400).json({
+        code: 400,
+        success: false,
+        message: 'Excel文件中没有数据'
+      });
     }
 
     // 验证和转换数据
@@ -595,6 +609,8 @@ router.post('/import/excel', adminAuth, upload.single('file'), async (req, res) 
       merchantId = req.adminId; // 商家只能创建属于自己的商品
     }
 
+    console.log('商品将分配给商家ID:', merchantId);
+
     for (let i = 0; i < rawData.length; i++) {
       const row = rawData[i];
       const rowIndex = i + 2; // Excel行号（从第2行开始，第1行是标题）
@@ -604,20 +620,32 @@ router.post('/import/excel', adminAuth, upload.single('file'), async (req, res) 
         if (!row['商品名称*'] ||
             row['商品名称*'] === '示例商品名称' ||
             row['商品名称*'] === '请在此行开始填写实际数据') {
+          console.log(`跳过第${rowIndex}行: 示例或空行`);
           continue;
         }
 
         // 验证必填字段
         const requiredFields = [
-          '商品名称*', '商品价格*', '批发价格*', '批发阈值*',
-          'VIP价格*', '库存数量*', '分类ID*', '商品状态*'
+          { field: '商品名称*', value: row['商品名称*'] },
+          { field: '商品价格*', value: row['商品价格*'] },
+          { field: '批发价格*', value: row['批发价格*'] },
+          { field: '批发阈值*', value: row['批发阈值*'] },
+          { field: 'VIP价格*', value: row['VIP价格*'] },
+          { field: '库存数量*', value: row['库存数量*'] },
+          { field: '分类ID*', value: row['分类ID*'] },
+          { field: '商品状态*', value: row['商品状态*'] }
         ];
 
-        for (const field of requiredFields) {
-          if (!row[field] && row[field] !== 0) {
+        let hasRequiredFieldError = false;
+        for (const { field, value } of requiredFields) {
+          if (!value && value !== 0) {
             errors.push(`第${rowIndex}行：${field}为必填项`);
-            continue;
+            hasRequiredFieldError = true;
           }
+        }
+
+        if (hasRequiredFieldError) {
+          continue;
         }
 
         // 验证数字字段
@@ -628,33 +656,25 @@ router.post('/import/excel', adminAuth, upload.single('file'), async (req, res) 
         const wholesaleThreshold = parseInt(row['批发阈值*']);
         const categoryId = parseInt(row['分类ID*']);
 
-        if (isNaN(price) || price <= 0) {
-          errors.push(`第${rowIndex}行：商品价格格式不正确`);
-          continue;
+        // 数字验证
+        const numberValidations = [
+          { value: price, name: '商品价格', condition: isNaN(price) || price <= 0 },
+          { value: wholesalePrice, name: '批发价格', condition: isNaN(wholesalePrice) || wholesalePrice <= 0 },
+          { value: vipPrice, name: 'VIP价格', condition: isNaN(vipPrice) || vipPrice <= 0 },
+          { value: stock, name: '库存数量', condition: isNaN(stock) || stock < 0 },
+          { value: wholesaleThreshold, name: '批发阈值', condition: isNaN(wholesaleThreshold) || wholesaleThreshold <= 0 },
+          { value: categoryId, name: '分类ID', condition: isNaN(categoryId) }
+        ];
+
+        let hasNumberError = false;
+        for (const { name, condition } of numberValidations) {
+          if (condition) {
+            errors.push(`第${rowIndex}行：${name}格式不正确`);
+            hasNumberError = true;
+          }
         }
 
-        if (isNaN(wholesalePrice) || wholesalePrice <= 0) {
-          errors.push(`第${rowIndex}行：批发价格格式不正确`);
-          continue;
-        }
-
-        if (isNaN(vipPrice) || vipPrice <= 0) {
-          errors.push(`第${rowIndex}行：VIP价格格式不正确`);
-          continue;
-        }
-
-        if (isNaN(stock) || stock < 0) {
-          errors.push(`第${rowIndex}行：库存数量格式不正确`);
-          continue;
-        }
-
-        if (isNaN(wholesaleThreshold) || wholesaleThreshold <= 0) {
-          errors.push(`第${rowIndex}行：批发阈值格式不正确`);
-          continue;
-        }
-
-        if (isNaN(categoryId)) {
-          errors.push(`第${rowIndex}行：分类ID格式不正确`);
+        if (hasNumberError) {
           continue;
         }
 
@@ -714,15 +734,21 @@ router.post('/import/excel', adminAuth, upload.single('file'), async (req, res) 
         };
 
         products.push(productData);
+        console.log(`第${rowIndex}行数据验证通过:`, productData.name);
 
       } catch (error) {
+        console.error(`第${rowIndex}行处理错误:`, error);
         errors.push(`第${rowIndex}行：数据处理错误 - ${error.message}`);
       }
     }
 
+    console.log('验证完成，有效商品数量:', products.length, '错误数量:', errors.length);
+
     // 如果有错误，返回错误信息
     if (errors.length > 0) {
       return res.status(400).json({
+        code: 400,
+        success: false,
         message: '数据验证失败',
         errors: errors.slice(0, 20), // 最多返回20个错误
         totalErrors: errors.length
@@ -730,25 +756,38 @@ router.post('/import/excel', adminAuth, upload.single('file'), async (req, res) 
     }
 
     if (products.length === 0) {
-      return res.status(400).json({ message: 'Excel中没有有效的商品数据' });
+      return res.status(400).json({
+        code: 400,
+        success: false,
+        message: 'Excel中没有有效的商品数据'
+      });
     }
 
     // 批量创建商品
+    console.log('开始批量创建商品...');
     const createdProducts = await Product.bulkCreate(products, {
       validate: true,
       returning: true
     });
 
+    console.log('商品创建成功，数量:', createdProducts.length);
+
     res.status(200).json({
+      code: 0,
+      success: true,
       message: '批量导入成功',
-      successCount: createdProducts.length,
-      totalCount: rawData.length,
-      products: createdProducts
+      data: {
+        successCount: createdProducts.length,
+        totalCount: rawData.length,
+        products: createdProducts
+      }
     });
 
   } catch (error) {
     console.error('Excel导入失败:', error);
     res.status(500).json({
+      code: 500,
+      success: false,
       message: 'Excel导入失败',
       error: error.message
     });

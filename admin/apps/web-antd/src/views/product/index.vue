@@ -8,7 +8,7 @@ import type {
 
 import type { ProductListParams } from '#/api/core/operation';
 
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, h } from 'vue';
 
 import { useAccessStore, useUserStore } from '@vben/stores';
 
@@ -617,8 +617,6 @@ const handleDownloadTemplate = async () => {
   }
 };
 
-
-
 // 打开Excel导入弹窗
 const handleOpenImport = () => {
   uploadFileList.value = [];
@@ -661,22 +659,47 @@ const handleConfirmImport = async () => {
 
   try {
     importLoading.value = true;
-    const response = await importProductsFromExcelApi(file as File);
+    console.log('开始Excel导入，文件名:', file.name, '大小:', file.size);
 
-    message.success(`导入成功！成功导入 ${response.successCount} 个商品`);
-    importModalVisible.value = false;
-    uploadFileList.value = [];
-    fetchTableData(); // 刷新商品列表
+    const response = await importProductsFromExcelApi(file as File);
+    console.log('Excel导入响应:', response);
+
+    if (response.success) {
+      message.success(`导入成功！成功导入 ${response.data.successCount} 个商品`);
+      importModalVisible.value = false;
+      uploadFileList.value = [];
+      // 刷新商品列表
+      await fetchTableData();
+    } else {
+      throw new Error(response.message || '导入失败');
+    }
   } catch (error: any) {
     console.error('Excel导入失败:', error);
 
     // 显示详细错误信息
-    if (error.response?.data?.errors) {
+    if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
       const errors = error.response.data.errors;
-      const errorMsg = errors.slice(0, 5).join('\n'); // 显示前5个错误
-      message.error(`导入失败：\n${errorMsg}${errors.length > 5 ? '\n...' : ''}`);
+      const errorCount = error.response.data.totalErrors || errors.length;
+
+      // 创建错误详情弹窗
+      Modal.error({
+        title: `导入失败 (共${errorCount}个错误)`,
+        content: h('div', { style: 'max-height: 300px; overflow-y: auto;' }, [
+          h('div', { style: 'margin-bottom: 10px; color: #666;' }, '请修正以下错误后重新导入：'),
+          h('ol', { style: 'margin: 0; padding-left: 20px;' },
+            errors.slice(0, 20).map((err: string) => h('li', { style: 'margin-bottom: 5px;' }, err))
+          ),
+          errorCount > 20 ? h('div', { style: 'margin-top: 10px; color: #999;' }, `还有 ${errorCount - 20} 个错误未显示...`) : null
+        ]),
+        width: 600,
+        okText: '我知道了'
+      });
+    } else if (error.response?.data?.message) {
+      message.error(error.response.data.message);
+    } else if (error.message) {
+      message.error(error.message);
     } else {
-      message.error(error.response?.data?.message || 'Excel导入失败');
+      message.error('Excel导入失败，请检查文件格式');
     }
   } finally {
     importLoading.value = false;
@@ -688,7 +711,6 @@ const handleCancelImport = () => {
   uploadFileList.value = [];
   importModalVisible.value = false;
 };
-
 
 </script>
 

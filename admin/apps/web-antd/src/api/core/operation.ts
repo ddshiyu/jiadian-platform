@@ -202,39 +202,38 @@ export function batchOperateProductsApi(
 }
 
 /**
- * 下载商品导入模板
+ * Excel导入商品响应接口
  */
-export async function downloadProductTemplateApi() {
-  // 直接使用 fetch API 来避免响应拦截器的干扰
-  const { useAccessStore } = await import('@vben/stores');
-  const accessStore = useAccessStore();
-  const { useAppConfig } = await import('@vben/hooks');
-  const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
-
-  const response = await fetch(`${apiURL}/admin/products/template/download`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessStore.accessToken}`,
-      'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`HTTP ${response.status}: ${errorText}`);
-  }
-
-  return response.blob();
+export interface ExcelImportResponse {
+  code: number;
+  success: boolean;
+  message: string;
+  data?: {
+    successCount: number;
+    totalCount: number;
+    products: Product[];
+  };
+  errors?: string[];
+  totalErrors?: number;
 }
 
 /**
- * Excel批量导入商品
- * @param file Excel文件
+ * 下载商品导入模板
  */
-export function importProductsFromExcelApi(file: File) {
+export async function downloadProductTemplateApi(): Promise<Blob> {
+  const response = await requestClient.get('/admin/products/template/download', {
+    responseType: 'blob',
+  });
+  return response;
+}
+
+/**
+ * Excel导入商品
+ */
+export function importProductsFromExcelApi(file: File): Promise<ExcelImportResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  return requestClient.post('/admin/products/import/excel', formData, {
+  return requestClient.post<ExcelImportResponse>('/admin/products/import/excel', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -853,3 +852,5 @@ export function deleteBankCardPaymentApi(index: number) {
     );
   });
 }
+
+
