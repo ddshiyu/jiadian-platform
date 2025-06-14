@@ -7,6 +7,7 @@ const routes: RouteRecordRaw[] = [
       keepAlive: false,
       order: 1000,
       title: '功能',
+      authority: ['admin'],
     },
     name: 'Operation',
     path: '/operation',
@@ -24,10 +25,10 @@ const routes: RouteRecordRaw[] = [
       {
         meta: {
           title: '小程序用户',
+          authority: ['admin'],
         },
         name: 'miniUsers',
         path: '/operation/mini-users',
-        // @ts-ignore 临时忽略类型检查
         component: () => import('#/views/operation/mini-users.vue'),
       },
     ],

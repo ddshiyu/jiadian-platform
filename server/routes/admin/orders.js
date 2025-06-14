@@ -333,7 +333,23 @@ router.get('/:id', adminAuth, async (req, res) => {
       return res.status(403).json({ message: '无权查看该订单' });
     }
 
-    res.status(200).json(order);
+    // 构造前端需要的数据格式
+    const orderData = order.toJSON();
+    const formattedOrder = {
+      ...orderData,
+      userName: orderData.User ? orderData.User.nickname : '未知用户',
+      items: orderData.OrderItems ? orderData.OrderItems.map(item => ({
+        id: item.id,
+        productId: item.productId,
+        productName: item.Product ? item.Product.name : (item.productName || '未知商品'),
+        price: item.price,
+        quantity: item.quantity,
+        totalAmount: item.price * item.quantity,
+        productCover: item.Product ? item.Product.cover : item.productCover
+      })) : []
+    };
+
+    res.status(200).json(formattedOrder);
   } catch (error) {
     console.error('获取订单详情失败:', error);
     res.status(500).json({

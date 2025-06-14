@@ -59,7 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
         } else {
           onSuccess
             ? await onSuccess?.()
-            : await router.push('/operation/mini-users');
+            : await router.push('/profile/my');
         }
         // }
 
