@@ -3,8 +3,7 @@ const router = express.Router();
 const { Product, Category, Order, OrderItem, Address, AdminUser } = require('../models');
 const auth = require('../middleware/auth');
 const { Op } = require('sequelize');
-const WxPay = require('wechatpay-node-v3');
-const fs = require('fs');
+const { pay } = require('../utils');
 const sequelize = require('../config/database');
 
 // 获取商品列表（带分页和搜索）
@@ -370,14 +369,6 @@ router.delete('/:id', auth, async (req, res) => {
     console.error('删除商品失败:', error);
     res.status(400).json({ message: '删除商品失败' });
   }
-});
-
-// 微信支付实例，放在路由外部全局定义，避免重复创建
-const pay = new WxPay({
-  appid: process.env.WECHAT_APPID,
-  mchid: process.env.WECHAT_MCHID,
-  publicKey: fs.readFileSync(__dirname + '/../wxpay_pem/apiclient_cert.pem'), // 公钥
-  privateKey: fs.readFileSync(__dirname + '/../wxpay_pem/apiclient_key.pem'), // 秘钥
 });
 
 // 创建预订单

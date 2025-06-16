@@ -5,18 +5,9 @@ const { User, Commission, Order } = require('../models');
 const axios = require('axios');
 const { Op } = require('sequelize');
 const auth = require('../middleware/auth');
-const WxPay = require('wechatpay-node-v3');
-const fs = require('fs');
+const { pay } = require('../utils');
 const sequelize = require('../config/database');
 require("dotenv").config();
-
-// 微信支付实例，放在路由外部全局定义，避免重复创建
-const pay = new WxPay({
-  appid: process.env.WECHAT_APPID,
-  mchid: process.env.WECHAT_MCHID,
-  publicKey: fs.readFileSync(__dirname + '/../wxpay_pem/apiclient_cert.pem'), // 公钥
-  privateKey: fs.readFileSync(__dirname + '/../wxpay_pem/apiclient_key.pem'), // 秘钥
-});
 
 // 接受邀请码参数，处理邀请关系
 router.post('/login', async (req, res) => {

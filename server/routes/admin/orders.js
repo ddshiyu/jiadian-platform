@@ -6,17 +6,8 @@ const User = require('../../models/User');
 const Product = require('../../models/Product');
 const { Op } = require('sequelize');
 const sequelize = require('../../config/database');
-const fs = require('fs');
-const WxPay = require('wechatpay-node-v3');
+const { pay } = require('../../utils');
 const adminAuth = require('../../middleware/adminAuth');
-// 微信支付实例，放在路由外部全局定义，避免重复创建
-const pay = new WxPay({
-  appid: process.env.WECHAT_APPID,
-  mchid: process.env.WECHAT_MCHID,
-  publicKey: fs.readFileSync(__dirname + '/../../wxpay_pem/apiclient_cert.pem'), // 公钥
-  privateKey: fs.readFileSync(__dirname + '/../../wxpay_pem/apiclient_key.pem'), // 秘钥
-});
-
 
 // 获取订单列表
 router.get('/', adminAuth, async (req, res) => {

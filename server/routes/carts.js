@@ -3,6 +3,7 @@ const router = express.Router();
 const { Cart, Product } = require('../models');
 const auth = require('../middleware/auth');
 const { Op } = require('sequelize');
+const { pay } = require('../utils');
 
 // 获取购物车列表
 router.get('/', auth, async (req, res) => {
@@ -671,18 +672,6 @@ router.post('/pay', auth, async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: '订单不存在或状态不正确' });
     }
-
-    // 引入微信支付实例
-    const WxPay = require('wechatpay-node-v3');
-    const fs = require('fs');
-
-    // 创建微信支付实例（或者你可以导入已经创建好的实例）
-    const pay = new WxPay({
-      appid: process.env.WECHAT_APPID,
-      mchid: process.env.WECHAT_MCHID,
-      publicKey: fs.readFileSync(__dirname + '/../wxpay_pem/apiclient_cert.pem'), // 公钥
-      privateKey: fs.readFileSync(__dirname + '/../wxpay_pem/apiclient_key.pem'), // 秘钥
-    });
 
     // 构建微信支付参数
     const params = {
