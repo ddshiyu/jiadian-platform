@@ -86,6 +86,7 @@ interface Product {
   cover: string;
   images?: string[];
   isRecommended?: boolean;
+  commissionAmount?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -216,6 +217,7 @@ const formData = reactive<Product>({
   cover: '',
   images: [],
   isRecommended: false,
+  commissionAmount: '',
 });
 
 type FormRuleType = Record<string, RuleObject[]>;
@@ -235,6 +237,31 @@ const formRules: FormRuleType = {
   ],
   status: [{ required: true, message: '请选择商品状态', trigger: 'change' }],
   stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }],
+  commissionAmount: [
+    {
+      validator: (rule: RuleObject, value: string) => {
+        if (!value) return Promise.resolve();
+
+        // 支持百分比格式（如 "5%"）
+        if (value.endsWith('%')) {
+          const percent = parseFloat(value.slice(0, -1));
+          if (isNaN(percent) || percent < 0 || percent > 100) {
+            return Promise.reject('佣金百分比应在0-100%之间');
+          }
+          return Promise.resolve();
+        }
+
+        // 支持固定金额（如 "10"）
+        const amount = parseFloat(value);
+        if (isNaN(amount) || amount < 0) {
+          return Promise.reject('佣金金额应为非负数或百分比格式（如：10 或 5%）');
+        }
+
+        return Promise.resolve();
+      },
+      trigger: 'blur'
+    }
+  ],
 };
 
 // 文件上传
@@ -401,6 +428,7 @@ const handleAdd = () => {
     cover: '',
     images: [],
     isRecommended: false,
+    commissionAmount: '',
   };
 
   Object.assign(formData, initialProduct);
@@ -433,6 +461,7 @@ const handleEdit = async (record: any) => {
         cover: productData.cover || '',
         images: productData.images || [],
         isRecommended: productData.isRecommended || false,
+        commissionAmount: productData.commissionAmount || '',
       };
 
       // 如果不是管理员且商品当前为上架状态，编辑时强制改为下架
@@ -517,7 +546,7 @@ const handleSubmit = async () => {
       submitLoading.value = true;
 
       // 准备提交的数据
-      const productData = {
+      const productData: any = {
         name: formData.name,
         description: formData.description,
         price: formData.price,
@@ -531,6 +560,7 @@ const handleSubmit = async () => {
         cover: formData.cover,
         images: formData.images,
         isRecommended: formData.isRecommended,
+        commissionAmount: (formData as any).commissionAmount,
       };
 
       try {
@@ -954,6 +984,16 @@ const handleCancelImport = () => {
           />
           <div class="form-item-help">VIP会员专享价格</div>
         </FormItem>
+        <FormItem label="佣金设置" name="commissionAmount">
+          <Input
+            v-model:value="(formData as any).commissionAmount"
+            placeholder="请输入佣金（如：10 或 5%）"
+            style="width: 100%"
+          />
+          <div class="form-item-help">
+            支持两种格式：固定金额（如：10）或百分比（如：5%）
+          </div>
+        </FormItem>
         <FormItem label="库存" name="stock">
           <InputNumber
             v-model:value="formData.stock"
@@ -1049,6 +1089,7 @@ const handleCancelImport = () => {
             <li>必填字段：商品名称、商品价格、批发价格、批发阈值、VIP价格、库存数量、分类ID、商品状态</li>
             <li>商品状态只能填写：on_sale（上架）或 off_sale（下架）</li>
             <li>是否推荐只能填写：true 或 false</li>
+            <li>佣金设置支持两种格式：固定金额（如：10）或百分比（如：5%）</li>
             <li>分类ID请参考模板中的分类参考表</li>
             <li>多张商品图片URL请用英文逗号分隔</li>
             <li>文件大小不能超过10MB</li>

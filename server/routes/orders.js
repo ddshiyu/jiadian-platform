@@ -330,6 +330,17 @@ router.put('/:id/complete', async (req, res) => {
         userId,
         status: 'delivered'
       },
+      include: [
+        {
+          model: OrderItem,
+          include: [
+            {
+              model: Product,
+              attributes: ['id', 'name', 'commissionAmount']
+            }
+          ]
+        }
+      ],
       transaction: t
     });
 
@@ -350,23 +361,48 @@ router.put('/:id/complete', async (req, res) => {
     if (user && user.inviterId) {
       const inviterId = user.inviterId;
 
-      // 2. 计算佣金金额（这里设置为订单总金额的5%）
-      const commissionRate = 0.05;
-      const commissionAmount = parseFloat(order.totalAmount) * commissionRate;
+      // 2. 计算每个商品的佣金并累加
+      let totalCommissionAmount = 0;
 
-      // 3. 创建佣金记录
-      await Commission.create({
-        userId: inviterId,
-        amount: commissionAmount,
-        orderId: order.id,
-        inviteeId: userId,
-        status: 'settled'
-      }, { transaction: t });
+      for (const orderItem of order.OrderItems) {
+        const product = orderItem.Product;
+        if (product && product.commissionAmount) {
+          // 计算该订单项的总金额
+          const orderItemTotalPrice = parseFloat(orderItem.price) * orderItem.quantity;
 
-      // 4. 更新邀请人的佣金总额
-      const inviter = await User.findByPk(inviterId, { transaction: t });
-      inviter.commission = parseFloat(inviter.commission) + commissionAmount;
-      await inviter.save({ transaction: t });
+          // 使用商品的佣金设置计算佣金
+          const itemCommission = product.calculateCommission(orderItemTotalPrice);
+          totalCommissionAmount += itemCommission;
+
+          console.log(`商品 ${product.name} 佣金计算:`, {
+            commissionSetting: product.commissionAmount,
+            orderItemPrice: orderItemTotalPrice,
+            calculatedCommission: itemCommission
+          });
+        }
+      }
+
+      // 3. 如果有佣金，创建佣金记录
+      if (totalCommissionAmount > 0) {
+        await Commission.create({
+          userId: inviterId,
+          amount: parseFloat(totalCommissionAmount.toFixed(2)),
+          orderId: order.id,
+          inviteeId: userId,
+          status: 'settled'
+        }, { transaction: t });
+
+        // 4. 更新邀请人的佣金总额
+        const inviter = await User.findByPk(inviterId, { transaction: t });
+        inviter.commission = parseFloat(inviter.commission) + parseFloat(totalCommissionAmount.toFixed(2));
+        await inviter.save({ transaction: t });
+
+        console.log(`订单 ${order.orderNo} 佣金已结算:`, {
+          inviterId,
+          totalCommission: totalCommissionAmount,
+          orderId: order.id
+        });
+      }
     }
 
     // 提交事务

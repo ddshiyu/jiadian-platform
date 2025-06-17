@@ -11,6 +11,7 @@
  * - wholesalePrice: 商品批发价格
  * - wholesaleThreshold: 批发价格阈值（购买数量达到此值时使用批发价）
  * - vipPrice: VIP会员价格
+ * - commissionAmount: 佣金数额，纯数字为固定金额，含%为百分比
  * - stock: 库存数量
  * - sales: 销售数量
  * - cover: 商品封面图
@@ -63,6 +64,11 @@ const Product = sequelize.define("Product", {
     allowNull: true,
     comment: 'VIP会员价格'
   },
+  commissionAmount: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '佣金数额，纯数字为固定金额，含%为百分比'
+  },
   stock: {
     type: DataTypes.INTEGER,
     allowNull: false,
@@ -110,6 +116,31 @@ const Product = sequelize.define("Product", {
   }
 });
 
+// 添加实例方法：计算佣金金额
+Product.prototype.calculateCommission = function(orderItemPrice) {
+  if (!this.commissionAmount) {
+    return 0;
+  }
+
+  const commissionStr = this.commissionAmount.toString().trim();
+
+  // 检查是否为百分比
+  if (commissionStr.includes('%')) {
+    const percentage = parseFloat(commissionStr.replace('%', ''));
+    if (isNaN(percentage)) {
+      return 0;
+    }
+    return (orderItemPrice * percentage) / 100;
+  } else {
+    // 固定金额
+    const fixedAmount = parseFloat(commissionStr);
+    if (isNaN(fixedAmount)) {
+      return 0;
+    }
+    return fixedAmount;
+  }
+};
+
 // 创建或更新表结构 - 增加重试机制
 const syncProductTable = async (retries = 5, delay = 2000) => {
   let attempt = 0;
@@ -126,6 +157,18 @@ const syncProductTable = async (retries = 5, delay = 2000) => {
       } catch (columnError) {
         // 如果列已存在，会报错，但不影响后续操作
         console.log("merchantId 列可能已存在:", columnError.message);
+      }
+
+      // 尝试直接执行SQL添加 commissionAmount 列
+      try {
+        await sequelize.query(`
+          ALTER TABLE Products
+          ADD COLUMN commissionAmount VARCHAR(255) NULL COMMENT '佣金数额，纯数字为固定金额，含%为百分比' AFTER vipPrice
+        `);
+        console.log("已添加 commissionAmount 列到产品表");
+      } catch (columnError) {
+        // 如果列已存在，会报错，但不影响后续操作
+        console.log("commissionAmount 列可能已存在:", columnError.message);
       }
 
       // 使用force: false和alter: true选项，确保不会删除现有数据

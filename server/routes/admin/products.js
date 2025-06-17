@@ -175,12 +175,30 @@ router.post('/', adminAuth, async (req, res) => {
   try {
     const {
       name, description, price, originalPrice, wholesalePrice, wholesaleThreshold, vipPrice,
-      stock, cover, images, status, categoryId, isRecommended, merchantId
+      commissionAmount, stock, cover, images, status, categoryId, isRecommended, merchantId
     } = req.body;
 
     // 验证必填字段
     if (!name || !price) {
       return res.status(400).json({ message: '商品名称和价格不能为空' });
+    }
+
+    // 验证佣金数额格式（如果提供了的话）
+    if (commissionAmount) {
+      const commissionStr = commissionAmount.toString().trim();
+      if (commissionStr.includes('%')) {
+        // 百分比格式验证
+        const percentage = parseFloat(commissionStr.replace('%', ''));
+        if (isNaN(percentage) || percentage < 0 || percentage > 100) {
+          return res.status(400).json({ message: '佣金百分比必须在0-100之间' });
+        }
+      } else {
+        // 固定金额格式验证
+        const fixedAmount = parseFloat(commissionStr);
+        if (isNaN(fixedAmount) || fixedAmount < 0) {
+          return res.status(400).json({ message: '佣金金额必须为非负数' });
+        }
+      }
     }
 
     // 确定商品所属的商家ID
@@ -202,6 +220,7 @@ router.post('/', adminAuth, async (req, res) => {
       wholesalePrice,
       wholesaleThreshold,
       vipPrice,
+      commissionAmount,
       stock: stock || 0,
       cover,
       images,
@@ -233,7 +252,7 @@ router.put('/:id', adminAuth, async (req, res) => {
   try {
     const {
       name, description, price, originalPrice, wholesalePrice, wholesaleThreshold, vipPrice,
-      stock, cover, images, status, categoryId, isRecommended, merchantId
+      commissionAmount, stock, cover, images, status, categoryId, isRecommended, merchantId
     } = req.body;
 
     const product = await Product.findByPk(req.params.id);
@@ -247,6 +266,26 @@ router.put('/:id', adminAuth, async (req, res) => {
       return res.status(403).json({ message: '无权更新该商品' });
     }
 
+    // 验证佣金数额格式（如果提供了的话）
+    if (commissionAmount !== undefined) {
+      if (commissionAmount) {
+        const commissionStr = commissionAmount.toString().trim();
+        if (commissionStr.includes('%')) {
+          // 百分比格式验证
+          const percentage = parseFloat(commissionStr.replace('%', ''));
+          if (isNaN(percentage) || percentage < 0 || percentage > 100) {
+            return res.status(400).json({ message: '佣金百分比必须在0-100之间' });
+          }
+        } else {
+          // 固定金额格式验证
+          const fixedAmount = parseFloat(commissionStr);
+          if (isNaN(fixedAmount) || fixedAmount < 0) {
+            return res.status(400).json({ message: '佣金金额必须为非负数' });
+          }
+        }
+      }
+    }
+
     // 更新商品信息
     if (name !== undefined) product.name = name;
     if (description !== undefined) product.description = description;
@@ -255,6 +294,7 @@ router.put('/:id', adminAuth, async (req, res) => {
     if (wholesalePrice !== undefined) product.wholesalePrice = wholesalePrice;
     if (wholesaleThreshold !== undefined) product.wholesaleThreshold = wholesaleThreshold;
     if (vipPrice !== undefined) product.vipPrice = vipPrice;
+    if (commissionAmount !== undefined) product.commissionAmount = commissionAmount;
     if (stock !== undefined) product.stock = stock;
     if (cover !== undefined) product.cover = cover;
     if (images !== undefined) product.images = images;
@@ -460,6 +500,7 @@ router.get('/template/download', adminAuth, async (req, res) => {
         '批发价格*': 85.00,
         '批发阈值*': 10,
         'VIP价格*': 89.99,
+        '佣金设置': '5%',
         '库存数量*': 100,
         '分类ID*': categories.length > 0 ? categories[0].id : 1,
         '商品状态*': 'off_sale',
@@ -475,6 +516,7 @@ router.get('/template/download', adminAuth, async (req, res) => {
         '批发价格*': '',
         '批发阈值*': '',
         'VIP价格*': '',
+        '佣金设置': '',
         '库存数量*': '',
         '分类ID*': '',
         '商品状态*': '',
@@ -499,6 +541,7 @@ router.get('/template/download', adminAuth, async (req, res) => {
       { wch: 12 }, // 批发价格
       { wch: 12 }, // 批发阈值
       { wch: 12 }, // VIP价格
+      { wch: 12 }, // 佣金设置
       { wch: 12 }, // 库存数量
       { wch: 10 }, // 分类ID
       { wch: 12 }, // 商品状态
@@ -531,6 +574,7 @@ router.get('/template/download', adminAuth, async (req, res) => {
       { '字段名': '批发价格*', '说明': '必填，批发价格，数字格式', '示例': '5500.00' },
       { '字段名': '批发阈值*', '说明': '必填，达到此数量可享批发价，整数', '示例': '10' },
       { '字段名': 'VIP价格*', '说明': '必填，VIP会员价格，数字格式', '示例': '5799.00' },
+      { '字段名': '佣金设置', '说明': '可选，纯数字为固定金额，含%为百分比', '示例': '5%或者10' },
       { '字段名': '库存数量*', '说明': '必填，商品库存数量，整数', '示例': '100' },
       { '字段名': '分类ID*', '说明': '必填，商品分类ID，参考分类参考表', '示例': '1' },
       { '字段名': '商品状态*', '说明': '必填，on_sale(上架)或off_sale(下架)', '示例': 'off_sale' },
@@ -685,6 +729,29 @@ router.post('/import/excel', adminAuth, upload.single('file'), async (req, res) 
           continue;
         }
 
+        // 验证佣金设置
+        let commissionAmount = null;
+        if (row['佣金设置']) {
+          const commissionStr = row['佣金设置'].toString().trim();
+          if (commissionStr.includes('%')) {
+            // 百分比格式验证
+            const percentage = parseFloat(commissionStr.replace('%', ''));
+            if (isNaN(percentage) || percentage < 0 || percentage > 100) {
+              errors.push(`第${rowIndex}行：佣金百分比必须在0-100之间`);
+              continue;
+            }
+            commissionAmount = commissionStr;
+          } else {
+            // 固定金额格式验证
+            const fixedAmount = parseFloat(commissionStr);
+            if (isNaN(fixedAmount) || fixedAmount < 0) {
+              errors.push(`第${rowIndex}行：佣金金额必须为非负数`);
+              continue;
+            }
+            commissionAmount = commissionStr;
+          }
+        }
+
         // 验证是否推荐
         let isRecommended = false;
         if (row['是否推荐']) {
@@ -724,6 +791,7 @@ router.post('/import/excel', adminAuth, upload.single('file'), async (req, res) 
           wholesalePrice: wholesalePrice,
           wholesaleThreshold: wholesaleThreshold,
           vipPrice: vipPrice,
+          commissionAmount: commissionAmount,
           stock: stock,
           categoryId: categoryId,
           status: status,
