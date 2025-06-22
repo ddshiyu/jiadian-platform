@@ -84,6 +84,10 @@
               <nut-price :price="item.price" size="normal" :thousands="true"></nut-price>
               <text v-if="item.originalPrice" class="product-original-price">¥{{ item.originalPrice }}</text>
             </view>
+            <view v-if="item.commissionAmount" class="product-commission-box">
+              <text class="commission-label">佣金</text>
+              <text class="commission-amount">{{ formatCommission(item.commissionAmount) }}</text>
+            </view>
           </view>
         </view>
       </view>
@@ -234,6 +238,23 @@ const navigateToProduct = (id) => {
     url: `/pages/product/detail?id=${id}`
   });
 };
+
+// 格式化佣金显示
+const formatCommission = (commissionAmount) => {
+  if (!commissionAmount) return '';
+  
+  const commissionStr = commissionAmount.toString().trim();
+  
+  // 检查是否为百分比
+  if (commissionStr.includes('%')) {
+    return commissionStr;
+  } else {
+    // 固定金额，显示为货币格式
+    const amount = parseFloat(commissionStr);
+    if (isNaN(amount)) return '';
+    return `¥${amount.toFixed(2)}`;
+  }
+};
 </script>
 
 <style lang="scss">
@@ -383,5 +404,26 @@ const navigateToProduct = (id) => {
   color: #999;
   text-decoration: line-through;
   margin-left: 10rpx;
+}
+
+.product-commission-box {
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.commission-label {
+  font-size: 22rpx;
+  background: linear-gradient(135deg, #ff9068 0%, #ff6b35 100%);
+  color: white;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  margin-right: 8rpx;
+}
+
+.commission-amount {
+  font-size: 24rpx;
+  color: #ff6b35;
+  font-weight: 500;
 }
 </style> 

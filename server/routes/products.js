@@ -64,6 +64,12 @@ router.get('/', async (req, res) => {
     // 获取商品列表
     const products = await Product.findAll({
       where,
+      attributes: [
+        'id', 'name', 'description', 'price', 'originalPrice',
+        'wholesalePrice', 'wholesaleThreshold', 'vipPrice', 'commissionAmount',
+        'stock', 'sales', 'cover', 'images', 'status', 'categoryId',
+        'merchantId', 'isRecommended', 'createdAt', 'updatedAt'
+      ],
       include: [
         {
           model: Category,
@@ -162,6 +168,12 @@ router.get('/search', async (req, res) => {
     // 获取商品列表
     const products = await Product.findAll({
       where,
+      attributes: [
+        'id', 'name', 'description', 'price', 'originalPrice',
+        'wholesalePrice', 'wholesaleThreshold', 'vipPrice', 'commissionAmount',
+        'stock', 'sales', 'cover', 'images', 'status', 'categoryId',
+        'merchantId', 'isRecommended', 'createdAt', 'updatedAt'
+      ],
       include: [
         {
           model: Category,
@@ -203,6 +215,12 @@ router.get('/search', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id, {
+      attributes: [
+        'id', 'name', 'description', 'price', 'originalPrice',
+        'wholesalePrice', 'wholesaleThreshold', 'vipPrice', 'commissionAmount',
+        'stock', 'sales', 'cover', 'images', 'status', 'categoryId',
+        'merchantId', 'isRecommended', 'createdAt', 'updatedAt'
+      ],
       include: [
         {
           model: Category,

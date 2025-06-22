@@ -65,6 +65,10 @@
               <nut-price :price="item.price" size="normal" :thousands="true"></nut-price>
               <text v-if="item.originalPrice" class="product-original-price">¥{{ item.originalPrice }}</text>
             </view>
+            <view v-if="item.commissionAmount" class="product-commission-box">
+              <text class="commission-label">佣金</text>
+              <text class="commission-amount">{{ formatCommission(item.commissionAmount) }}</text>
+            </view>
           </view>
         </view>
       </view>
@@ -252,20 +256,20 @@ const fetchRecommendProducts = async () => {
     } else {
       // 使用默认数据
       recommendProductList.value = [
-        { id: 9, name: '海信超薄智能电视', cover: '/static/images/product9.png', price: 2999, originalPrice: 3599 },
-        { id: 10, name: '小米全自动洗碗机', cover: '/static/images/product10.png', price: 1899, originalPrice: 2199 },
-        { id: 11, name: 'LG变频风冷冰箱', cover: '/static/images/product11.png', price: 4299, originalPrice: 4999 },
-        { id: 12, name: '三星智能家庭影院', cover: '/static/images/product12.png', price: 3699, originalPrice: 4299 }
+        { id: 9, name: '海信超薄智能电视', cover: '/static/images/product9.png', price: 2999, originalPrice: 3599, commissionAmount: '15%' },
+        { id: 10, name: '小米全自动洗碗机', cover: '/static/images/product10.png', price: 1899, originalPrice: 2199, commissionAmount: '200' },
+        { id: 11, name: 'LG变频风冷冰箱', cover: '/static/images/product11.png', price: 4299, originalPrice: 4999, commissionAmount: '12%' },
+        { id: 12, name: '三星智能家庭影院', cover: '/static/images/product12.png', price: 3699, originalPrice: 4299, commissionAmount: '350' }
       ];
     }
   } catch (error) {
     console.error('获取推荐商品失败', error);
     // 使用默认数据
     recommendProductList.value = [
-      { id: 9, name: '海信超薄智能电视', cover: '/static/images/product9.png', price: 2999, originalPrice: 3599 },
-      { id: 10, name: '小米全自动洗碗机', cover: '/static/images/product10.png', price: 1899, originalPrice: 2199 },
-      { id: 11, name: 'LG变频风冷冰箱', cover: '/static/images/product11.png', price: 4299, originalPrice: 4999 },
-      { id: 12, name: '三星智能家庭影院', cover: '/static/images/product12.png', price: 3699, originalPrice: 4299 }
+      { id: 9, name: '海信超薄智能电视', cover: '/static/images/product9.png', price: 2999, originalPrice: 3599, commissionAmount: '15%' },
+      { id: 10, name: '小米全自动洗碗机', cover: '/static/images/product10.png', price: 1899, originalPrice: 2199, commissionAmount: '200' },
+      { id: 11, name: 'LG变频风冷冰箱', cover: '/static/images/product11.png', price: 4299, originalPrice: 4999, commissionAmount: '12%' },
+      { id: 12, name: '三星智能家庭影院', cover: '/static/images/product12.png', price: 3699, originalPrice: 4299, commissionAmount: '350' }
     ];
   } finally {
     loading.value.recommendProducts = false;
@@ -356,6 +360,23 @@ const submitInviteCode = async () => {
 // 关闭公告弹窗
 const closeAnnouncement = () => {
   showAnnouncementPopup.value = false;
+};
+
+// 格式化佣金显示
+const formatCommission = (commissionAmount) => {
+  if (!commissionAmount) return '';
+  
+  const commissionStr = commissionAmount.toString().trim();
+  
+  // 检查是否为百分比
+  if (commissionStr.includes('%')) {
+    return commissionStr;
+  } else {
+    // 固定金额，显示为货币格式
+    const amount = parseFloat(commissionStr);
+    if (isNaN(amount)) return '';
+    return `¥${amount.toFixed(2)}`;
+  }
 };
 </script>
 
@@ -488,6 +509,28 @@ const closeAnnouncement = () => {
   color: #999;
   text-decoration: line-through;
   margin-left: 10rpx;
+}
+
+.product-commission-box {
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.commission-label {
+  font-size: 22rpx;
+  color: #ff6b35;
+  background: linear-gradient(135deg, #ff9068 0%, #ff6b35 100%);
+  color: white;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  margin-right: 8rpx;
+}
+
+.commission-amount {
+  font-size: 24rpx;
+  color: #ff6b35;
+  font-weight: 500;
 }
 
 // 邀请码弹窗样式

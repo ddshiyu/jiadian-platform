@@ -30,6 +30,11 @@
       </view>
       <!-- VIP价格标签 -->
       <VipTag :price="product.price" :vip-price="product.vipPrice" />
+      <!-- 佣金信息 -->
+      <view v-if="product.commissionAmount" class="commission-info-box">
+        <text class="commission-label">推广佣金</text>
+        <text class="commission-amount">{{ formatCommission(product.commissionAmount) }}</text>
+      </view>
       <!-- 自营标签 -->
       <SelfOperatedTag :product="product" />
       <nut-ellipsis
@@ -110,6 +115,7 @@ const product = reactive({
   cover: '',
   images: [],
   detailHtml: '',
+  commissionAmount: '',
   Category: null
 });
 
@@ -323,6 +329,23 @@ const navigateToCart = () => {
     url: '/pages/cart/index'
   });
 };
+
+// 格式化佣金显示
+const formatCommission = (commissionAmount) => {
+  if (!commissionAmount) return '';
+  
+  const commissionStr = commissionAmount.toString().trim();
+  
+  // 检查是否为百分比
+  if (commissionStr.includes('%')) {
+    return commissionStr;
+  } else {
+    // 固定金额，显示为货币格式
+    const amount = parseFloat(commissionStr);
+    if (isNaN(amount)) return '';
+    return `¥${amount.toFixed(2)}`;
+  }
+};
 </script>
 
 <style lang="scss">
@@ -364,6 +387,33 @@ const navigateToCart = () => {
 /* VIP价格标签样式 */
 :deep(.vip-tag) {
   margin-bottom: 20rpx;
+}
+
+/* 佣金信息样式 */
+.commission-info-box {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 16rpx;
+  background: linear-gradient(135deg, #fff5f0 0%, #ffebe5 100%);
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+  border: 2rpx solid #ff6b35;
+}
+
+.commission-label {
+  font-size: 24rpx;
+  background: linear-gradient(135deg, #ff9068 0%, #ff6b35 100%);
+  color: white;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  margin-right: 12rpx;
+  font-weight: 500;
+}
+
+.commission-amount {
+  font-size: 28rpx;
+  color: #ff6b35;
+  font-weight: 600;
 }
 
 /* 自营标签样式 */
