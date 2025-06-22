@@ -84,6 +84,11 @@
               <nut-price :price="item.price" size="normal" :thousands="true"></nut-price>
               <text v-if="item.originalPrice" class="product-original-price">¥{{ item.originalPrice }}</text>
             </view>
+            <!-- VIP价格 -->
+            <view v-if="item.vipPrice && item.vipPrice < item.price" class="vip-price-box">
+              <text class="vip-label">VIP</text>
+              <text class="vip-price">¥{{ Number(item.vipPrice).toFixed(2) }}</text>
+            </view>
             <view v-if="item.commissionAmount" class="product-commission-box">
               <text class="commission-label">佣金</text>
               <text class="commission-amount">{{ formatCommission(item.commissionAmount) }}</text>
@@ -404,6 +409,28 @@ const formatCommission = (commissionAmount) => {
   color: #999;
   text-decoration: line-through;
   margin-left: 10rpx;
+}
+
+.vip-price-box {
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+
+.vip-label {
+  font-size: 20rpx;
+  background: linear-gradient(135deg, #FFD700 0%, #FF8C00 100%);
+  color: white;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  margin-right: 8rpx;
+  font-weight: 500;
+}
+
+.vip-price {
+  font-size: 26rpx;
+  color: #FF8C00;
+  font-weight: 600;
 }
 
 .product-commission-box {
