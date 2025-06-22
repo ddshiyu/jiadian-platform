@@ -297,11 +297,18 @@ router.get('/refunds', adminAuth, async (req, res) => {
 // 获取订单详情
 router.get('/:id', adminAuth, async (req, res) => {
   try {
+    const { AdminUser } = require('../../models');
+
     const order = await Order.findByPk(req.params.id, {
       include: [
         {
           model: User,
           attributes: ['id', 'nickname', 'phone']
+        },
+        {
+          model: AdminUser,
+          as: 'merchant',
+          attributes: ['id', 'username', 'name', 'phone', 'email', 'role']
         },
         {
           model: OrderItem,
@@ -329,6 +336,14 @@ router.get('/:id', adminAuth, async (req, res) => {
     const formattedOrder = {
       ...orderData,
       userName: orderData.User ? orderData.User.nickname : '未知用户',
+      merchant: orderData.merchant ? {
+        id: orderData.merchant.id,
+        username: orderData.merchant.username,
+        name: orderData.merchant.name,
+        phone: orderData.merchant.phone,
+        email: orderData.merchant.email,
+        role: orderData.merchant.role
+      } : null,
       items: orderData.OrderItems ? orderData.OrderItems.map(item => ({
         id: item.id,
         productId: item.productId,

@@ -4,7 +4,7 @@ import type { RuleObject } from 'ant-design-vue/es/form/interface';
 import type { UploadFile } from 'ant-design-vue/lib/upload/interface';
 import type { Dayjs } from 'dayjs';
 
-import type { Order, OrderListParams } from '#/api/core/operation';
+import type { Order, OrderListParams, Merchant } from '#/api/core/operation';
 
 import { onMounted, reactive, ref } from 'vue';
 
@@ -407,7 +407,7 @@ const generateMockOrders = () => {
           : new Date(
               Date.now() - Math.random() * 86_400_000 * 30,
             ).toISOString(),
-      deliveryTime: ['completed', 'delivered'].includes(status)
+      deliveryTime: ['completed', 'delivered'].includes(status as string)
         ? new Date(Date.now() - Math.random() * 86_400_000 * 15).toISOString()
         : undefined,
       completionTime:
@@ -428,6 +428,14 @@ const generateMockOrders = () => {
       updatedAt: new Date(
         Date.now() - Math.random() * 86_400_000 * 30,
       ).toISOString(),
+      merchant: {
+        id: Math.floor(index / 5) + 1,
+        username: `merchant${Math.floor(index / 5) + 1}`,
+        name: `商家${Math.floor(index / 5) + 1}`,
+        phone: `1380000${String(Math.floor(index / 5) + 1).padStart(4, '0')}`,
+        email: `merchant${Math.floor(index / 5) + 1}@example.com`,
+        role: Math.random() > 0.8 ? 'admin' as const : 'user' as const,
+      },
       items: [
         {
           id: index * 2 + 1,
@@ -1037,6 +1045,28 @@ onMounted(() => {
           </DescriptionsItem>
           <DescriptionsItem label="备注" :span="2">
             {{ currentOrder.remark || '-' }}
+          </DescriptionsItem>
+        </Descriptions>
+
+        <Divider />
+
+        <Descriptions title="商家信息" bordered :column="2">
+          <DescriptionsItem label="商家名称">
+            {{ currentOrder.merchant?.name || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="商家用户名">
+            {{ currentOrder.merchant?.username || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="联系电话">
+            {{ currentOrder.merchant?.phone || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="邮箱地址">
+            {{ currentOrder.merchant?.email || '-' }}
+          </DescriptionsItem>
+          <DescriptionsItem label="角色类型" :span="2">
+            <Tag :color="currentOrder.merchant?.role === 'admin' ? 'red' : 'blue'">
+              {{ currentOrder.merchant?.role === 'admin' ? '超级管理员' : '商家用户' }}
+            </Tag>
           </DescriptionsItem>
         </Descriptions>
 

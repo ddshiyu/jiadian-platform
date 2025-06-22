@@ -325,6 +325,15 @@ export interface OrderItem {
   productCover?: string;
 }
 
+export interface Merchant {
+  id: number;
+  username: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  role: 'admin' | 'user';
+}
+
 export interface Order {
   id: number;
   orderNo: string;
@@ -357,6 +366,7 @@ export interface Order {
   phone?: string;
   createdAt: string;
   updatedAt: string;
+  merchant?: Merchant;
   items: OrderItem[];
 }
 
