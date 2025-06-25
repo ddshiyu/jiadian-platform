@@ -31,6 +31,15 @@ const routes: RouteRecordRaw[] = [
         path: '/operation/mini-users',
         component: () => import('#/views/operation/mini-users.vue'),
       },
+      {
+        meta: {
+          title: '公告管理',
+          authority: ['admin'],
+        },
+        name: 'announcements',
+        path: '/operation/announcements',
+        component: () => import('#/views/operation/announcements.vue'),
+      },
     ],
   },
   {

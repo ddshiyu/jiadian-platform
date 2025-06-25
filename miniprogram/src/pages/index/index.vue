@@ -101,10 +101,10 @@
 
     <!-- 公告弹窗 -->
     <nut-popup v-model:visible="showAnnouncementPopup" position="center" round>
-      <view class="announcement-popup">
+      <view class="announcement-popup" v-if="currentAnnouncement">
         <view class="announcement-header">
           <nut-icon name="notice" size="24" color="#E31D1A"></nut-icon>
-          <text class="announcement-title">系统公告</text>
+          <text class="announcement-title">{{ currentAnnouncement.title || '系统公告' }}</text>
           <nut-icon
             name="close"
             size="20"
@@ -113,21 +113,7 @@
           ></nut-icon>
         </view>
         <view class="announcement-content">
-          <text class="announcement-text">
-            欢迎使用家电商城小程序！
-            
-            🎉 新用户专享优惠：
-            • 首次下单立减50元
-            • 免费配送到家
-            • 7天无理由退换货
-            
-            📱 更多功能：
-            • 在线客服24小时服务
-            • 正品保障，假一赔十
-            • 积分兑换精美礼品
-            
-            感谢您的信任与支持！
-          </text>
+          <text class="announcement-text">{{ currentAnnouncement.content }}</text>
         </view>
         <view class="announcement-footer">
           <nut-button type="primary" block @click="closeAnnouncement">我知道了</nut-button>
@@ -141,6 +127,7 @@
 import { ref } from 'vue';
 import { homeApi } from '../../api/index';
 import { productApi } from '../../api/product';
+import { announcementApi } from '../../api/announcement.js';
 import { onLoad } from '@dcloudio/uni-app';
 import { filterProductsByUserType } from '@/utils/productFilter';
 import SelfOperatedTag from '@/components/SelfOperatedTag.vue';
@@ -160,6 +147,7 @@ const inputInviteCode = ref('');
 
 // 公告弹窗状态
 const showAnnouncementPopup = ref(false);
+const currentAnnouncement = ref(null);
 
 // 加载状态
 const loading = ref({
@@ -182,10 +170,8 @@ onLoad((options) => {
     inputInviteCode.value = options.inviteCode;
     showInviteCodePopup.value = true;
   } else {
-    // 如果没有邀请码弹窗，则显示公告弹窗
-    setTimeout(() => {
-      showAnnouncementPopup.value = true;
-    }, 500); // 延迟500ms显示，让页面先加载完成
+    // 如果没有邀请码弹窗，则获取并显示公告
+    fetchLatestAnnouncement();
   }
 });
 
@@ -370,9 +356,35 @@ const submitInviteCode = async () => {
   }
 };
 
+// 获取最新公告
+const fetchLatestAnnouncement = async () => {
+  try {
+    const res = await announcementApi.getLatestAnnouncement();
+    console.log('获取公告响应:', res);
+    // 适配新的响应格式，直接使用res作为数据
+    if (res && res.data &&  res.data.id) {
+      currentAnnouncement.value = res.data;
+      // 延迟显示公告弹窗
+      setTimeout(() => {
+        showAnnouncementPopup.value = true;
+      }, 500);
+    }
+  } catch (error) {
+    console.error('获取公告失败:', error);
+    // 如果获取公告失败，不显示弹窗
+  }
+};
+
 // 关闭公告弹窗
 const closeAnnouncement = () => {
   showAnnouncementPopup.value = false;
+  
+  // 如果有公告ID，增加浏览次数
+  if (currentAnnouncement.value && currentAnnouncement.value.id) {
+    announcementApi.incrementViewCount(currentAnnouncement.value.id).catch(error => {
+      console.error('增加浏览次数失败:', error);
+    });
+  }
 };
 
 // 格式化佣金显示

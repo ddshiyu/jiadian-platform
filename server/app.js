@@ -19,6 +19,7 @@ const cartsRouter = require('./routes/carts');
 const ordersRouter = require('./routes/orders');
 const addressesRouter = require('./routes/addresses');
 const bannersRouter = require('./routes/banners');
+const announcementsRouter = require('./routes/announcements');
 
 // 管理系统路由
 const adminAuthRouter = require('./routes/admin/auth');
@@ -30,6 +31,7 @@ const adminDashboardRouter = require('./routes/admin/dashboard');
 const adminMiniUserRouter = require('./routes/admin/miniUser');
 const adminBannersRouter = require('./routes/admin/banners');
 const adminCommissionRouter = require('./routes/admin/commission');
+const adminAnnouncementsRouter = require('./routes/admin/announcements');
 
 // 通用路由
 const uploadRouter = require('./routes/common/upload');
@@ -70,6 +72,7 @@ app.use('/carts', auth, cartsRouter);
 app.use('/orders', auth, ordersRouter);
 app.use('/addresses', auth, addressesRouter);
 app.use('/banners', bannersRouter);
+app.use('/announcements', announcementsRouter);
 
 // 管理系统接口路由 - 需要管理员token验证
 app.use('/admin/products', adminAuth, adminProductsRouter);
@@ -80,6 +83,7 @@ app.use('/admin/dashboard', adminAuth, adminDashboardRouter);
 app.use('/admin/mini-users', adminAuth, adminMiniUserRouter);
 app.use('/admin/banners', adminAuth, adminBannersRouter);
 app.use('/admin/commissions', adminAuth, adminCommissionRouter);
+app.use('/admin/announcements', adminAuth, adminAnnouncementsRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

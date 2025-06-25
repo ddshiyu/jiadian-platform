@@ -879,4 +879,97 @@ export function deleteBankCardPaymentApi(index: number) {
   });
 }
 
+// 公告管理相关接口
+export interface Announcement {
+  id?: number;
+  title: string;
+  content: string;
+  status: 'active' | 'inactive';
+  startTime?: string;
+  endTime?: string;
+  viewCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AnnouncementListParams {
+  status?: string;
+  keyword?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface AnnouncementListResult {
+  list: Announcement[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * 获取公告列表
+ * @param params 查询参数
+ */
+export function getAnnouncementListApi(params: AnnouncementListParams) {
+  return requestClient.get<AnnouncementListResult>('/admin/announcements', {
+    params,
+  });
+}
+
+/**
+ * 获取公告详情
+ * @param id 公告ID
+ */
+export function getAnnouncementDetailApi(id: number) {
+  return requestClient.get<Announcement>(`/admin/announcements/${id}`);
+}
+
+/**
+ * 创建公告
+ * @param data 公告数据
+ */
+export function createAnnouncementApi(data: Announcement) {
+  return requestClient.post<Announcement>('/admin/announcements', data);
+}
+
+/**
+ * 更新公告
+ * @param id 公告ID
+ * @param data 公告数据
+ */
+export function updateAnnouncementApi(id: number, data: Announcement) {
+  return requestClient.put<Announcement>(`/admin/announcements/${id}`, data);
+}
+
+/**
+ * 删除公告
+ * @param id 公告ID
+ */
+export function deleteAnnouncementApi(id: number) {
+  return requestClient.delete(`/admin/announcements/${id}`);
+}
+
+/**
+ * 批量删除公告
+ * @param ids 公告ID数组
+ */
+export function batchDeleteAnnouncementsApi(ids: number[]) {
+  return requestClient.delete('/admin/announcements/batch/delete', {
+    data: { ids },
+  });
+}
+
+/**
+ * 更新公告状态
+ * @param id 公告ID
+ * @param status 公告状态
+ */
+export function updateAnnouncementStatusApi(
+  id: number,
+  status: 'active' | 'inactive',
+) {
+  return requestClient.put(`/admin/announcements/${id}/status`, { status });
+}
+
 

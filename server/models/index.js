@@ -27,6 +27,7 @@ const OrderItem = require('./OrderItem');
 const Address = require('./Address');
 const Banner = require('./Banner');
 const Commission = require('./Commission');
+const Announcement = require('./Announcement');
 
 // 导入管理系统模型
 const adminModels = require('./admin');
@@ -72,5 +73,6 @@ module.exports = {
   OrderItem,
   Address,
   Banner,
-  Commission
+  Commission,
+  Announcement
 };
