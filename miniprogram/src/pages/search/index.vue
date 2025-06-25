@@ -110,6 +110,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { productApi } from '../../api/product';
+import { filterProductsByUserType } from '@/utils/productFilter';
 import SelfOperatedTag from '@/components/SelfOperatedTag.vue';
 
 // 搜索关键词
@@ -205,18 +206,21 @@ const searchProducts = async () => {
     
     if (res && res.code === 0 && res.data) {
       // 处理搜索结果
+      let products = [];
       if (Array.isArray(res.data)) {
-        searchResults.value = res.data;
+        products = res.data;
       } else if (res.data.list && Array.isArray(res.data.list)) {
-        searchResults.value = res.data.list;
+        products = res.data.list;
         console.log('搜索到的商品数据:', JSON.stringify(res.data.list.map(item => ({
           id: item.id,
           name: item.name,
           merchant: item.merchant
         })), null, 2));
-      } else {
-        searchResults.value = [];
       }
+      
+      // 根据用户身份过滤商品
+      const filteredProducts = await filterProductsByUserType(products);
+      searchResults.value = filteredProducts;
     } else {
       searchResults.value = [];
     }
@@ -243,6 +247,8 @@ const navigateToProduct = (id) => {
     url: `/pages/product/detail?id=${id}`
   });
 };
+
+
 
 // 格式化佣金显示
 const formatCommission = (commissionAmount) => {

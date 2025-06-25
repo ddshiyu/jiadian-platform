@@ -56,7 +56,8 @@ const getUserInfo = async () => {
 				age: res.data.age,
 				phone: res.data.phone,
 				inviteCode: res.data.inviteCode,
-				commission: res.data.commission || 0
+				commission: res.data.commission || 0,
+				userType: res.data.userType || 0,
 			});
 			
 			// 获取VIP状态

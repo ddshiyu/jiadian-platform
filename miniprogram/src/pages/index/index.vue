@@ -141,8 +141,8 @@
 import { ref } from 'vue';
 import { homeApi } from '../../api/index';
 import { productApi } from '../../api/product';
-import { userApi } from '../../api/user';
 import { onLoad } from '@dcloudio/uni-app';
+import { filterProductsByUserType } from '@/utils/productFilter';
 import SelfOperatedTag from '@/components/SelfOperatedTag.vue';
 
 // 轮播图数据
@@ -188,6 +188,8 @@ onLoad((options) => {
     }, 500); // 延迟500ms显示，让页面先加载完成
   }
 });
+
+
 
 // 获取轮播图数据
 const fetchBanners = async () => {
@@ -255,9 +257,15 @@ const fetchRecommendProducts = async () => {
   try {
     loading.value.recommendProducts = true;
     // 使用 productApi.getProducts 接口并添加 isRecommended=true 参数
-    const res = await productApi.getProducts({ isRecommended: true, limit: 4 });
+    const res = await productApi.getProducts({ isRecommended: true, limit: 20 }); // 增加获取数量以便过滤
     if (res && res.code === 0 && res.data) {
-      recommendProductList.value = res.data.list;
+      let products = res.data.list || [];
+      
+      // 根据用户身份过滤商品
+      const filteredProducts = await filterProductsByUserType(products);
+      
+      // 只取前4个推荐商品
+      recommendProductList.value = filteredProducts.slice(0, 4);
     } else {
       // 使用默认数据
       recommendProductList.value = [

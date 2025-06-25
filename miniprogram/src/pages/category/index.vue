@@ -60,6 +60,7 @@
 import { ref, onMounted, watch } from 'vue';
 import { productApi } from '../../api/product';
 import { homeApi } from '../../api/index';
+import { filterProductsByUserType } from '@/utils/productFilter';
 import SelfOperatedTag from '@/components/SelfOperatedTag.vue';
 
 // 分类列表
@@ -152,7 +153,7 @@ const loadProducts = async () => {
     
     // 构建请求参数
     const params = {
-      limit: 20,  // 显示数量
+      limit: 50,  // 增加获取数量以便过滤
       offset: 0,
       categoryId: currentCategory.value
     };
@@ -165,19 +166,21 @@ const loadProducts = async () => {
     
     if (res && res.code === 0 && res.data) {
       // 处理后端返回的商品数据
+      let products = [];
       if (Array.isArray(res.data)) {
-        productList.value = res.data;
+        products = res.data;
       } else if (res.data.list && Array.isArray(res.data.list)) {
-        productList.value = res.data.list;
+        products = res.data.list;
         console.log('分类商品数据:', JSON.stringify(res.data.list.map(item => ({
           id: item.id,
           name: item.name,
           merchant: item.merchant
         })), null, 2));
-      } else {
-        // 使用默认数据
-        useDefaultProducts();
       }
+      
+      // 根据用户身份过滤商品
+      const filteredProducts = await filterProductsByUserType(products);
+      productList.value = filteredProducts.slice(0, 20); // 最多显示20个
     } else {
       useDefaultProducts();
     }
@@ -227,6 +230,8 @@ const onRefresh = () => {
   refreshing.value = true;
   loadProducts();
 };
+
+
 
 // 跳转到商品详情
 const navigateToProduct = (id) => {
