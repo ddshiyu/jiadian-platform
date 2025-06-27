@@ -89,6 +89,14 @@ interface Product {
   commissionAmount?: string;
   createdAt?: string;
   updatedAt?: string;
+  // 仅前端使用的字段
+  feeRate?: number; // 手续费百分比（不传给后端）
+  basePrices?: {
+    price: number;
+    originalPrice: number;
+    wholesalePrice: number;
+    vipPrice: number;
+  }; // 保存原始价格（不传给后端）
 }
 
 interface FileItem extends UploadFile {
@@ -218,6 +226,13 @@ const formData = reactive<Product>({
   images: [],
   isRecommended: false,
   commissionAmount: '',
+  feeRate: 0,
+  basePrices: {
+    price: 0,
+    originalPrice: 0,
+    wholesalePrice: 0,
+    vipPrice: 0,
+  },
 });
 
 type FormRuleType = Record<string, RuleObject[]>;
@@ -429,6 +444,13 @@ const handleAdd = () => {
     images: [],
     isRecommended: false,
     commissionAmount: '',
+    feeRate: 0,
+    basePrices: {
+      price: 0,
+      originalPrice: 0,
+      wholesalePrice: 0,
+      vipPrice: 0,
+    },
   };
 
   Object.assign(formData, initialProduct);
@@ -462,6 +484,13 @@ const handleEdit = async (record: any) => {
         images: productData.images || [],
         isRecommended: productData.isRecommended || false,
         commissionAmount: productData.commissionAmount || '',
+        feeRate: 0, // 编辑时手续费重置为0
+        basePrices: {
+          price: productData.price,
+          originalPrice: productData.originalPrice || 0,
+          wholesalePrice: productData.wholesalePrice || 0,
+          vipPrice: productData.vipPrice || 0,
+        },
       };
 
       // 如果不是管理员且商品当前为上架状态，编辑时强制改为下架
@@ -545,7 +574,7 @@ const handleSubmit = async () => {
 
       submitLoading.value = true;
 
-      // 准备提交的数据
+      // 准备提交的数据（排除前端专用字段）
       const productData: any = {
         name: formData.name,
         description: formData.description,
@@ -560,7 +589,8 @@ const handleSubmit = async () => {
         cover: formData.cover,
         images: formData.images,
         isRecommended: formData.isRecommended,
-        commissionAmount: (formData as any).commissionAmount,
+        commissionAmount: formData.commissionAmount,
+        // 注意：feeRate 和 basePrices 不传给后端
       };
 
       try {
@@ -608,6 +638,49 @@ const beforeUpload = (file: UploadFile): boolean => {
 const formatDate = (date: string): string => {
   if (!date) return '-';
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss');
+};
+
+// 根据手续费率重新计算价格
+const calculatePricesWithFee = () => {
+  if (!formData.basePrices || !formData.feeRate) {
+    return;
+  }
+
+  const feeMultiplier = 1 + (formData.feeRate / 100);
+
+  formData.price = Number((formData.basePrices.price * feeMultiplier).toFixed(2));
+  formData.originalPrice = Number((formData.basePrices.originalPrice * feeMultiplier).toFixed(2));
+  formData.wholesalePrice = Number((formData.basePrices.wholesalePrice * feeMultiplier).toFixed(2));
+  formData.vipPrice = Number((formData.basePrices.vipPrice * feeMultiplier).toFixed(2));
+};
+
+// 保存基础价格（不含手续费的价格）
+const saveBasePrices = () => {
+  if (!formData.basePrices) {
+    formData.basePrices = {
+      price: 0,
+      originalPrice: 0,
+      wholesalePrice: 0,
+      vipPrice: 0,
+    };
+  }
+
+  formData.basePrices.price = formData.price;
+  formData.basePrices.originalPrice = formData.originalPrice || 0;
+  formData.basePrices.wholesalePrice = formData.wholesalePrice || 0;
+  formData.basePrices.vipPrice = formData.vipPrice || 0;
+};
+
+// 手续费变化处理
+const handleFeeRateChange = (value: number | string | null) => {
+  if (value === null || value === undefined) {
+    formData.feeRate = 0;
+    return;
+  }
+
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  formData.feeRate = isNaN(numValue) ? 0 : numValue;
+  calculatePricesWithFee();
 };
 
 // 下载商品导入模板
@@ -945,6 +1018,7 @@ const handleCancelImport = () => {
             :min="0"
             :precision="2"
             style="width: 100%"
+            @change="saveBasePrices"
           />
         </FormItem>
         <FormItem label="原价" name="originalPrice">
@@ -954,6 +1028,7 @@ const handleCancelImport = () => {
             :min="0"
             :precision="2"
             style="width: 100%"
+            @change="saveBasePrices"
           />
         </FormItem>
         <FormItem label="批发价格" name="wholesalePrice" required>
@@ -963,6 +1038,7 @@ const handleCancelImport = () => {
             :min="0"
             :precision="2"
             style="width: 100%"
+            @change="saveBasePrices"
           />
         </FormItem>
         <FormItem label="批发阈值" name="wholesaleThreshold" required>
@@ -981,12 +1057,28 @@ const handleCancelImport = () => {
             :min="0"
             :precision="2"
             style="width: 100%"
+            @change="saveBasePrices"
           />
           <div class="form-item-help">VIP会员专享价格</div>
         </FormItem>
+        <FormItem label="手续费率" name="feeRate">
+          <InputNumber
+            v-model:value="formData.feeRate"
+            placeholder="请输入手续费率"
+            :min="0"
+            :max="100"
+            :precision="2"
+            style="width: 100%"
+            addon-after="%"
+            @change="handleFeeRateChange"
+          />
+          <div class="form-item-help">
+            输入手续费率后将自动重新计算各项价格（此字段仅用于前端计算，不会保存到后端）
+          </div>
+        </FormItem>
         <FormItem label="佣金设置" name="commissionAmount">
           <Input
-            v-model:value="(formData as any).commissionAmount"
+            v-model:value="formData.commissionAmount"
             placeholder="请输入佣金（如：10 或 5%）"
             style="width: 100%"
           />
