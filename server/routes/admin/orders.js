@@ -4,6 +4,7 @@ const Order = require('../../models/Order');
 const OrderItem = require('../../models/OrderItem');
 const User = require('../../models/User');
 const Product = require('../../models/Product');
+const Commission = require('../../models/Commission');
 const { Op } = require('sequelize');
 const sequelize = require('../../config/database');
 const { pay } = require('../../utils');
@@ -593,6 +594,9 @@ router.put('/:id/refund', adminAuth, async (req, res) => {
     }
 
     if (action === 'approved') {
+      // 开启事务
+      const t = await sequelize.transaction();
+
       try {
         // 调用微信支付退款接口
         const refundResult = await pay.refunds({
@@ -607,10 +611,47 @@ router.put('/:id/refund', adminAuth, async (req, res) => {
           }
         });
 
+        // 处理佣金清除
+        const commissions = await Commission.findAll({
+          where: {
+            orderId: order.id,
+            status: 'settled'
+          },
+          include: [
+            {
+              model: User,
+              as: 'user'
+            }
+          ],
+          transaction: t
+        });
+
+        // 取消佣金并从用户账户中减去佣金金额
+        for (const commission of commissions) {
+          if (commission.user) {
+            // 从用户账户中减去佣金
+            commission.user.commission = parseFloat(commission.user.commission) - parseFloat(commission.amount);
+            await commission.user.save({ transaction: t });
+
+            // 更新佣金状态为已取消
+            commission.status = 'cancelled';
+            await commission.save({ transaction: t });
+
+            console.log(`订单 ${order.orderNo} 佣金已取消:`, {
+              userId: commission.userId,
+              amount: commission.amount,
+              orderId: order.id
+            });
+          }
+        }
+
         // 更新订单状态为退款处理中
         order.status = 'refund_processing';
         order.refundRemark = remark || '退款申请已通过，等待退款结果';
-        await order.save();
+        await order.save({ transaction: t });
+
+        // 提交事务
+        await t.commit();
 
         res.status(200).json({
           message: '退款申请已提交，等待退款结果',
@@ -622,6 +663,8 @@ router.put('/:id/refund', adminAuth, async (req, res) => {
           }
         });
       } catch (refundError) {
+        // 回滚事务
+        await t.rollback();
         console.error('微信退款失败:', refundError);
         res.status(500).json({
           message: '退款申请提交失败',
