@@ -298,14 +298,6 @@ const vipOptions = [
   { label: '12个月', value: 12, price: 298 }
 ];
 
-// 页面加载
-onMounted(() => {
-  loadOrderCount();
-  if (userInfo.isLoggedIn) {
-    loadInviteData();
-    loadVipStatus();
-  }
-});
 
 // 页面显示
 onShow(() => {
@@ -325,11 +317,12 @@ const loadInviteData = async () => {
       inviteData.inviteCode = inviteCodeRes.data.inviteCode;
       inviteData.commission = inviteCodeRes.data.commission || 0;
     }
-    
     // 获取邀请好友数量
     const userInfoRes = await userApi.getUserInfo();
     if (userInfoRes && userInfoRes.code === 0 && userInfoRes.data) {
       inviteData.inviteesCount = userInfoRes.data.statistics?.inviteesCount || 0;
+    } else if (userInfoRes && userInfoRes.code === 404) {
+      uni.removeStorageSync('userInfo')
     }
   } catch (error) {
     console.error('获取邀请数据失败:', error);

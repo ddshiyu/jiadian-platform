@@ -1,45 +1,23 @@
 <script setup>
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app';
-import { reactive, provide, watch } from 'vue';
+import { reactive, provide } from 'vue';
 import { userApi } from '@/api/user';
 
-// 读取本地存储的用户信息
-const getStoredUserInfo = () => {
-	try {
-		const storedUserInfo = uni.getStorageSync('userInfo');
-		return storedUserInfo ? JSON.parse(storedUserInfo) : null;
-	} catch (error) {
-		console.error('读取用户信息失败:', error);
-		return null;
-	}
-};
-
-// 全局用户状态（优先使用存储中的信息）
-const storedUserInfo = getStoredUserInfo();
+// 全局用户状态（使用默认值初始化）
 const userInfo = reactive({
-	id: storedUserInfo?.id || null,
-	nickname: storedUserInfo?.nickname || '',
-	avatar: storedUserInfo?.avatar || '',
-	phone: storedUserInfo?.phone || '',
-	isLoggedIn: !!storedUserInfo?.id,
-	gender: storedUserInfo?.gender || 0,
-	age: storedUserInfo?.age || null,
-	openid: storedUserInfo?.openid || '',
-	inviteCode: storedUserInfo?.inviteCode || '',
-	commission: storedUserInfo?.commission || 0,
-	isVip: !!storedUserInfo?.isVip,
-	vipExpireDate: storedUserInfo?.vipExpireDate || null
+	id: null,
+	nickname: '',
+	avatar: '',
+	phone: '',
+	isLoggedIn: false,
+	gender: 0,
+	age: null,
+	openid: '',
+	inviteCode: '',
+	commission: 0,
+	isVip: false,
+	vipExpireDate: null
 });
-
-// 监听用户信息变化，保存到本地存储
-watch(userInfo, (newValue) => {
-	try {
-		uni.setStorageSync('userInfo', JSON.stringify(newValue));
-		console.log('用户信息已保存到本地存储');
-	} catch (error) {
-		console.error('保存用户信息失败:', error);
-	}
-}, { deep: true });
 
 // 获取用户信息
 const getUserInfo = async () => {
@@ -58,10 +36,27 @@ const getUserInfo = async () => {
 				inviteCode: res.data.inviteCode,
 				commission: res.data.commission || 0,
 				userType: res.data.userType || 0,
+				isLoggedIn: true
 			});
 			
 			// 获取VIP状态
 			await getVipStatus();
+		} else if (res && res.code === 404) {
+			// 用户不存在，重置用户信息
+			Object.assign(userInfo, {
+				id: null,
+				nickname: '',
+				avatar: '',
+				phone: '',
+				isLoggedIn: false,
+				gender: 0,
+				age: null,
+				openid: '',
+				inviteCode: '',
+				commission: 0,
+				isVip: false,
+				vipExpireDate: null
+			});
 		}
 	} catch (error) {
 		console.error('获取用户信息失败:', error);
@@ -82,9 +77,6 @@ const getVipStatus = async () => {
 	}
 };
 
-// 提供用户信息给全局使用
-provide('userInfo', userInfo);
-
 // 应用启动时获取用户信息
 onLaunch(() => {
 	console.log('App Launch');
@@ -92,6 +84,9 @@ onLaunch(() => {
 	// 调用获取用户信息接口
 	getUserInfo();
 });
+
+// 提供用户信息给全局使用
+provide('userInfo', userInfo);
 
 onShow(() => {
 	console.log('App Show');
