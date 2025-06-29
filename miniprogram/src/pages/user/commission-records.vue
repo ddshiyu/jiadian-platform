@@ -6,7 +6,7 @@
     <view class="stats-card">
       <view class="stats-item">
         <text class="stats-label">累计佣金(元)</text>
-        <text class="stats-num">{{ totalCommission.toFixed(2) }}</text>
+        <text class="stats-num">{{ totalCommission }}</text>
       </view>
     </view>
     
@@ -24,7 +24,7 @@
           <view class="commission-info">
             <view class="top-row">
               <text class="nickname">{{ item.invitee?.nickname || '匿名用户' }}</text>
-              <text class="amount">+{{ item.amount.toFixed(2) }}</text>
+              <text class="amount">+{{ item.amount }}</text>
             </view>
             <view class="bottom-row">
               <text class="order-no">订单: {{ item.order?.orderNo || '未知订单' }}</text>
@@ -47,7 +47,7 @@ const loading = ref(false);
 
 // 计算总佣金
 const totalCommission = computed(() => {
-  return commissions.value.reduce((sum, item) => sum + (item.amount || 0), 0);
+  return commissions.value.reduce((sum, item) => sum + (+item.amount || 0), 0);
 });
 
 // 页面加载
