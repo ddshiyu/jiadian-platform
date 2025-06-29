@@ -124,7 +124,7 @@
 </template>
 
 <script setup lang="js">
-import { ref } from 'vue';
+import { ref, inject } from 'vue';
 import { homeApi } from '../../api/index';
 import { productApi } from '../../api/product';
 import { userApi } from '../../api/user';
@@ -132,6 +132,9 @@ import { announcementApi } from '../../api/announcement.js';
 import { onLoad } from '@dcloudio/uni-app';
 import { filterProductsByUserType } from '@/utils/productFilter';
 import SelfOperatedTag from '@/components/SelfOperatedTag.vue';
+
+// 获取全局用户信息
+const userInfo = inject('userInfo');
 
 // 轮播图数据
 const bannerList = ref([]);
@@ -326,6 +329,20 @@ const navigateToSearch = () => {
 
 // 提交邀请码
 const submitInviteCode = async () => {
+  // 检查是否登录
+  if (!userInfo.isLoggedIn) {
+    uni.showToast({
+      title: '请先登录',
+      icon: 'none'
+    });
+    // 跳转到我的页面
+    uni.switchTab({
+      url: '/pages/profile/index'
+    });
+    showInviteCodePopup.value = false;
+    return;
+  }
+  
   if (!inputInviteCode.value) {
     uni.showToast({
       title: '请输入邀请码',
