@@ -27,9 +27,6 @@
       <view class="section-title">年度会员专享权益</view>
       <view class="benefits-list">
         <view class="benefit-item">
-          <view class="benefit-icon">
-            <nut-icon name="price" size="40" color="#FFD700"></nut-icon>
-          </view>
           <view class="benefit-info">
             <view class="benefit-title">全场9.5折优惠</view>
             <view class="benefit-desc">365天无限次享受折扣</view>
@@ -37,9 +34,6 @@
         </view>
         
         <view class="benefit-item">
-          <view class="benefit-icon">
-            <nut-icon name="service" size="40" color="#FFD700"></nut-icon>
-          </view>
           <view class="benefit-info">
             <view class="benefit-title">专属客服</view>
             <view class="benefit-desc">全年VIP专线客服服务</view>
@@ -47,9 +41,6 @@
         </view>
         
         <view class="benefit-item">
-          <view class="benefit-icon">
-            <nut-icon name="gift" size="40" color="#FFD700"></nut-icon>
-          </view>
           <view class="benefit-info">
             <view class="benefit-title">生日礼包</view>
             <view class="benefit-desc">年度会员专属豪华礼品</view>
@@ -57,9 +48,6 @@
         </view>
         
         <view class="benefit-item">
-          <view class="benefit-icon">
-            <nut-icon name="cart" size="40" color="#FFD700"></nut-icon>
-          </view>
           <view class="benefit-info">
             <view class="benefit-title">专享活动</view>
             <view class="benefit-desc">年度会员专属特价活动</view>
