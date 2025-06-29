@@ -127,6 +127,7 @@
 import { ref } from 'vue';
 import { homeApi } from '../../api/index';
 import { productApi } from '../../api/product';
+import { userApi } from '../../api/user';
 import { announcementApi } from '../../api/announcement.js';
 import { onLoad } from '@dcloudio/uni-app';
 import { filterProductsByUserType } from '@/utils/productFilter';

@@ -59,7 +59,7 @@
             </button>
           </view>
           <view v-if="userInfo.isLoggedIn && inviteData.commission > 0" class="commission">
-            累计佣金: ¥{{ inviteData.commission.toFixed(2) }}
+            累计佣金: ¥{{ inviteData.commission }}
           </view>
         </view>
       </view>
