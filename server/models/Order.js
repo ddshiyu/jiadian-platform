@@ -188,6 +188,30 @@ const Order = sequelize.define("Order", {
     type: DataTypes.STRING,
     allowNull: true,
     comment: '退款备注信息'
+  },
+  settlementStatus: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'unsettled',
+    comment: '结算状态: 未结算、已结算、结算中',
+    validate: {
+      isIn: [['unsettled', 'settling', 'settled']]
+    }
+  },
+  settlementTime: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: '结算时间'
+  },
+  settlementAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+    comment: '结算金额'
+  },
+  settlementRemark: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '结算备注'
   }
 }, {
   tableName: 'Orders',

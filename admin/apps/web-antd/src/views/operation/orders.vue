@@ -21,6 +21,7 @@ import {
   Form,
   FormItem,
   Input,
+  InputNumber,
   message,
   Modal,
   Popconfirm,
@@ -44,6 +45,7 @@ import {
   getRefundOrderListApi,
   handleRefundApi,
   remarkOrderApi,
+  settleOrderApi,
   shipOrderApi,
 } from '#/api/core/operation';
 
@@ -69,6 +71,11 @@ const columns = [
   {
     title: '支付状态',
     key: 'paymentStatus',
+    width: 120,
+  },
+  {
+    title: '结算状态',
+    key: 'settlementStatus',
     width: 120,
   },
   {
@@ -267,6 +274,31 @@ const statusFormRules = {
   ] as RuleObject[],
 };
 
+// 结算表单控制
+const settlementVisible = ref(false);
+const settlementForm = reactive({
+  orderId: 0,
+  settlementAmount: 0 as number,
+  remark: '',
+});
+const settlementFormRef = ref<FormInstance | null>(null);
+const settlementFormRules = {
+  settlementAmount: [
+    {
+      required: true,
+      message: '请输入结算金额',
+      trigger: 'change',
+      type: 'number',
+    },
+    {
+      min: 0.01,
+      message: '结算金额必须大于0.01',
+      trigger: 'change',
+      type: 'number',
+    },
+  ] as RuleObject[],
+};
+
 // Tab 切换
 const activeTab = ref<string>('all');
 const handleTabChange = (activeKey: any) => {
@@ -401,6 +433,26 @@ const generateMockOrders = () => {
       status: status as Order['status'],
       paymentStatus: paymentStatus as Order['paymentStatus'],
       paymentMethod: paymentStatus === 'unpaid' ? undefined : '微信支付',
+      settlementStatus: (
+        status === 'completed' && paymentStatus === 'paid'
+          ? (Math.random() > 0.7 ? 'settled' : Math.random() > 0.5 ? 'settling' : 'unsettled')
+          : 'unsettled'
+      ) as Order['settlementStatus'],
+      settlementTime: (
+        status === 'completed' && paymentStatus === 'paid' && Math.random() > 0.5
+          ? new Date(Date.now() - Math.random() * 86_400_000 * 7).toISOString()
+          : undefined
+      ),
+      settlementAmount: (
+        status === 'completed' && paymentStatus === 'paid' && Math.random() > 0.5
+          ? Number((Math.floor(Math.random() * 10_000) / 100 + 100) * 0.95) // 确保是数字类型，结算金额略低于订单金额
+          : undefined
+      ),
+      settlementRemark: (
+        status === 'completed' && paymentStatus === 'paid' && Math.random() > 0.5
+          ? `订单结算完成${index + 1}`
+          : undefined
+      ),
       paymentTime:
         paymentStatus === 'unpaid'
           ? undefined
@@ -685,6 +737,47 @@ const confirmStatus = async () => {
   }
 };
 
+// 结算订单
+const handleSettle = (record: any) => {
+  settlementForm.orderId = record.id;
+  settlementForm.settlementAmount = Number(record.totalAmount); // 确保是数字类型
+  settlementForm.remark = '';
+  settlementVisible.value = true;
+};
+
+// 取消结算
+const cancelSettlement = () => {
+  settlementVisible.value = false;
+};
+
+// 确认结算
+const confirmSettlement = async () => {
+  if (!settlementFormRef.value) return;
+
+  try {
+    await settlementFormRef.value.validate();
+    submitLoading.value = true;
+
+    // 确保传递数字类型的金额
+    const settlementAmount = Number(settlementForm.settlementAmount);
+
+    await settleOrderApi(
+      settlementForm.orderId,
+      settlementAmount,
+      settlementForm.remark,
+    );
+
+    message.success('订单结算成功');
+    settlementVisible.value = false;
+    fetchData();
+  } catch (error) {
+    console.error('订单结算失败:', error);
+    message.error('订单结算失败');
+  } finally {
+    submitLoading.value = false;
+  }
+};
+
 // 格式化日期
 const formatDate = (date: string) => {
   return date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '';
@@ -736,6 +829,26 @@ const getPaymentStatusColor = (status: Order['paymentStatus']) => {
     unpaid: 'orange',
     paid: 'green',
     refunded: 'purple',
+  };
+  return colorMap[status] || 'default';
+};
+
+// 获取结算状态文本
+const getSettlementStatusText = (status: Order['settlementStatus']) => {
+  const statusMap: Record<Order['settlementStatus'], string> = {
+    unsettled: '未结算',
+    settling: '结算中',
+    settled: '已结算',
+  };
+  return statusMap[status] || status;
+};
+
+// 获取结算状态颜色
+const getSettlementStatusColor = (status: Order['settlementStatus']) => {
+  const colorMap: Record<Order['settlementStatus'], string> = {
+    unsettled: 'orange',
+    settling: 'blue',
+    settled: 'green',
   };
   return colorMap[status] || 'default';
 };
@@ -916,6 +1029,13 @@ onMounted(() => {
                 </Tag>
               </template>
 
+              <!-- 结算状态 -->
+              <template v-if="column.key === 'settlementStatus'">
+                <Tag :color="getSettlementStatusColor(record.settlementStatus)">
+                  {{ getSettlementStatusText(record.settlementStatus) }}
+                </Tag>
+              </template>
+
               <!-- 时间信息 -->
               <template v-if="column.key === 'time'">
                 <div>
@@ -950,6 +1070,11 @@ onMounted(() => {
                   <template v-if="record.status === 'refund_pending'">
                     <Button type="link" @click="() => handleRefund(record)">
                       处理退款
+                    </Button>
+                  </template>
+                  <template v-if="record.status === 'completed' && record.settlementStatus === 'unsettled'">
+                    <Button type="link" @click="() => handleSettle(record)">
+                      结算
                     </Button>
                   </template>
                   <Button type="link" @click="() => handleRemark(record)">
@@ -1000,6 +1125,13 @@ onMounted(() => {
                 </Tag>
               </template>
 
+              <!-- 结算状态 -->
+              <template v-if="column.key === 'settlementStatus'">
+                <Tag :color="getSettlementStatusColor(record.settlementStatus)">
+                  {{ getSettlementStatusText(record.settlementStatus) }}
+                </Tag>
+              </template>
+
               <!-- 时间信息 -->
               <template v-if="column.key === 'time'">
                 <div>
@@ -1034,6 +1166,11 @@ onMounted(() => {
                   <template v-if="record.status === 'refund_pending'">
                     <Button type="link" @click="() => handleRefund(record)">
                       处理退款
+                    </Button>
+                  </template>
+                  <template v-if="record.status === 'completed' && record.settlementStatus === 'unsettled'">
+                    <Button type="link" @click="() => handleSettle(record)">
+                      结算
                     </Button>
                   </template>
                   <Button type="link" @click="() => handleRemark(record)">
@@ -1082,6 +1219,11 @@ onMounted(() => {
               {{ getPaymentStatusText(currentOrder.paymentStatus) }}
             </Tag>
           </DescriptionsItem>
+          <DescriptionsItem label="结算状态">
+            <Tag :color="getSettlementStatusColor(currentOrder.settlementStatus)">
+              {{ getSettlementStatusText(currentOrder.settlementStatus) }}
+            </Tag>
+          </DescriptionsItem>
           <DescriptionsItem label="支付方式" :span="2">
             {{ currentOrder.paymentMethod || '-' }}
           </DescriptionsItem>
@@ -1105,6 +1247,23 @@ onMounted(() => {
                 ? formatDate(currentOrder.completionTime)
                 : '-'
             }}
+          </DescriptionsItem>
+          <DescriptionsItem label="结算时间" :span="2">
+            {{
+              currentOrder.settlementTime
+                ? formatDate(currentOrder.settlementTime)
+                : '-'
+            }}
+          </DescriptionsItem>
+          <DescriptionsItem label="结算金额" :span="2">
+            {{
+              currentOrder.settlementAmount
+                ? `¥${Number(currentOrder.settlementAmount).toFixed(2)}`
+                : '-'
+            }}
+          </DescriptionsItem>
+          <DescriptionsItem label="结算备注" :span="2">
+            {{ currentOrder.settlementRemark || '-' }}
           </DescriptionsItem>
           <DescriptionsItem label="备注" :span="2">
             {{ currentOrder.remark || '-' }}
@@ -1354,6 +1513,44 @@ onMounted(() => {
           <Textarea
             v-model:value="statusForm.remark"
             placeholder="请输入备注"
+            :rows="4"
+          />
+        </FormItem>
+      </Form>
+    </Modal>
+
+    <!-- 结算弹窗 -->
+    <Modal
+      v-model:visible="settlementVisible"
+      title="订单结算"
+      @ok="confirmSettlement"
+      :confirm-loading="submitLoading"
+      @cancel="cancelSettlement"
+      ok-text="确定"
+      cancel-text="取消"
+    >
+      <Form
+        ref="settlementFormRef"
+        :model="settlementForm"
+        :rules="settlementFormRules"
+        :label-col="{ span: 4 }"
+        :wrapper-col="{ span: 18 }"
+      >
+        <FormItem label="结算金额" name="settlementAmount">
+          <InputNumber
+            v-model:value="settlementForm.settlementAmount"
+            :min="0.01"
+            :step="0.01"
+            :precision="2"
+            placeholder="请输入结算金额"
+            addon-before="¥"
+            style="width: 100%"
+          />
+        </FormItem>
+        <FormItem label="结算备注" name="remark">
+          <Textarea
+            v-model:value="settlementForm.remark"
+            placeholder="请输入结算备注"
             :rows="4"
           />
         </FormItem>

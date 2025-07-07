@@ -130,6 +130,10 @@ router.get('/', adminAuth, async (req, res) => {
         consignee: orderData.consignee,
         phone: orderData.phone,
         orderType: orderData.orderType,
+        settlementStatus: orderData.settlementStatus || 'unsettled',
+        settlementTime: orderData.settlementTime,
+        settlementAmount: orderData.settlementAmount,
+        settlementRemark: orderData.settlementRemark,
         createdAt: orderData.createdAt,
         updatedAt: orderData.updatedAt,
         items: orderData.OrderItems ? orderData.OrderItems.map(item => ({
@@ -256,6 +260,10 @@ router.get('/refunds', adminAuth, async (req, res) => {
         refundRemark: orderData.refundRemark,
         consignee: orderData.consignee,
         phone: orderData.phone,
+        settlementStatus: orderData.settlementStatus || 'unsettled',
+        settlementTime: orderData.settlementTime,
+        settlementAmount: orderData.settlementAmount,
+        settlementRemark: orderData.settlementRemark,
         createdAt: orderData.createdAt,
         user: orderData.User ? {
           id: orderData.User.id,
@@ -337,6 +345,10 @@ router.get('/:id', adminAuth, async (req, res) => {
     const formattedOrder = {
       ...orderData,
       userName: orderData.User ? orderData.User.nickname : '未知用户',
+      settlementStatus: orderData.settlementStatus || 'unsettled',
+      settlementTime: orderData.settlementTime,
+      settlementAmount: orderData.settlementAmount,
+      settlementRemark: orderData.settlementRemark,
       merchant: orderData.merchant ? {
         id: orderData.merchant.id,
         username: orderData.merchant.username,
@@ -694,6 +706,70 @@ router.put('/:id/refund', adminAuth, async (req, res) => {
   } catch (error) {
     console.error('处理退款失败:', error.message, error.stack);
     res.status(400).json({ message: '处理退款失败', error: error.message });
+  }
+});
+
+// 订单结算
+router.put('/:id/settle', adminAuth, async (req, res) => {
+  try {
+    const { settlementAmount, remark } = req.body;
+    const order = await Order.findByPk(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: '订单不存在' });
+    }
+
+    // 商家只能结算自己的订单
+    if (req.adminRole === 'user' && order.merchantId !== req.adminId) {
+      return res.status(403).json({ message: '无权结算该订单' });
+    }
+
+    // 检查订单状态：只有已完成且未结算的订单才能结算
+    if (order.status !== 'completed') {
+      return res.status(400).json({ message: '只有已完成的订单才能结算' });
+    }
+
+    if (order.settlementStatus === 'settled') {
+      return res.status(400).json({ message: '该订单已经结算过了' });
+    }
+
+    // 默认结算金额为订单总金额
+    const finalSettlementAmount = settlementAmount || order.totalAmount;
+
+    // 验证结算金额
+    if (finalSettlementAmount <= 0) {
+      return res.status(400).json({ message: '结算金额必须大于0' });
+    }
+
+    if (finalSettlementAmount > order.totalAmount) {
+      return res.status(400).json({ message: '结算金额不能超过订单总金额' });
+    }
+
+    // 更新订单结算信息
+    order.settlementStatus = 'settled';
+    order.settlementTime = new Date();
+    order.settlementAmount = finalSettlementAmount;
+    order.settlementRemark = remark || '订单结算完成';
+
+    await order.save();
+
+    res.status(200).json({
+      message: '订单结算成功',
+      order: {
+        id: order.id,
+        orderNo: order.orderNo,
+        settlementStatus: order.settlementStatus,
+        settlementTime: order.settlementTime,
+        settlementAmount: order.settlementAmount,
+        settlementRemark: order.settlementRemark
+      }
+    });
+  } catch (error) {
+    console.error('订单结算失败:', error);
+    res.status(500).json({
+      message: '订单结算失败',
+      error: error.message
+    });
   }
 });
 

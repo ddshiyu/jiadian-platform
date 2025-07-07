@@ -365,6 +365,10 @@ export interface Order {
   address?: string;
   consignee?: string;
   phone?: string;
+  settlementStatus: 'unsettled' | 'settling' | 'settled';
+  settlementTime?: string;
+  settlementAmount?: number;
+  settlementRemark?: string;
   createdAt: string;
   updatedAt: string;
   merchant?: Merchant;
@@ -484,6 +488,27 @@ export function handleRefundApi(
     data.remark = remark;
   }
   return requestClient.put(`/admin/orders/${id}/refund`, data);
+}
+
+/**
+ * 订单结算
+ * @param id 订单ID
+ * @param settlementAmount 结算金额
+ * @param remark 结算备注
+ */
+export function settleOrderApi(
+  id: number,
+  settlementAmount?: number,
+  remark?: string,
+) {
+  const data: { settlementAmount?: number; remark?: string } = {};
+  if (settlementAmount !== undefined) {
+    data.settlementAmount = settlementAmount;
+  }
+  if (remark) {
+    data.remark = remark;
+  }
+  return requestClient.put(`/admin/orders/${id}/settle`, data);
 }
 
 /**
