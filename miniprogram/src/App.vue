@@ -16,14 +16,14 @@ const userInfo = reactive({
 	inviteCode: '',
 	commission: 0,
 	isVip: false,
-	vipExpireDate: null
+	vipExpireDate: null,
+	userType: ''
 });
 
 // 获取用户信息
 const getUserInfo = async () => {
 	try {
 		const res = await userApi.getUserInfo();
-		
 		if (res && res.code === 0 && res.data) {
 			// 更新用户信息
 			Object.assign(userInfo, {
@@ -78,11 +78,12 @@ const getVipStatus = async () => {
 };
 
 // 应用启动时获取用户信息
-onLaunch(() => {
+onLaunch(async () => {
 	console.log('App Launch');
 	console.log(import.meta.env.VITE_APP_BASE_API)
 	// 调用获取用户信息接口
-	getUserInfo();
+	await getUserInfo();
+	uni.setStorageSync('userInfo', userInfo);
 });
 
 // 提供用户信息给全局使用

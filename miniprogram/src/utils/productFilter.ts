@@ -39,10 +39,10 @@ export const filterProductsByUserType = async (products: any[]): Promise<any[]> 
 export const getUserInfo = async (): Promise<any> => {
   try {
     // 先尝试从缓存获取
-    const cachedUserInfo = uni.getStorageSync('userInfo');
-    if (cachedUserInfo) {
-      return JSON.parse(cachedUserInfo);
-    }
+    // const cachedUserInfo = uni.getStorageSync('userInfo');
+    // if (typeof cachedUserInfo === 'string' && cachedUserInfo) {
+    //   return JSON.parse(cachedUserInfo);
+    // }
     
     // 如果缓存没有，从接口获取
     const res = await userApi.getUserInfo();
