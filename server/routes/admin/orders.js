@@ -459,6 +459,9 @@ router.put('/:id/status', adminAuth, async (req, res) => {
         message = '订单已取消';
         break;
       case 'refund_pending':
+        message = '订单已标记为退款申请中';
+        break;
+      case 'refund_processing':
         message = '订单已标记为退款处理中';
         break;
       case 'refund_approved':

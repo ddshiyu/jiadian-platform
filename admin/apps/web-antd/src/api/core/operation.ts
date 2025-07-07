@@ -350,6 +350,7 @@ export interface Order {
     | 'pending_payment'
     | 'refund_approved'
     | 'refund_pending'
+    | 'refund_processing'
     | 'refund_rejected';
   paymentStatus: 'paid' | 'refunded' | 'unpaid';
   paymentMethod?: string;

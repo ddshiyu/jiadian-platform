@@ -404,6 +404,10 @@ const generateMockOrders = () => {
     'delivered',
     'completed',
     'cancelled',
+    'refund_pending',
+    'refund_processing',
+    'refund_approved',
+    'refund_rejected',
   ];
   const paymentStatuses: Array<Order['paymentStatus']> = [
     'unpaid',
@@ -791,7 +795,8 @@ const getStatusText = (status: Order['status']) => {
     delivered: '已发货',
     completed: '已完成',
     cancelled: '已取消',
-    refund_pending: '退款处理中',
+    refund_pending: '退款申请中',
+    refund_processing: '退款处理中',
     refund_approved: '退款已通过',
     refund_rejected: '退款已拒绝',
   };
@@ -807,6 +812,7 @@ const getStatusColor = (status: Order['status']) => {
     completed: 'green',
     cancelled: 'red',
     refund_pending: 'gold',
+    refund_processing: 'magenta',
     refund_approved: 'purple',
     refund_rejected: 'volcano',
   };
@@ -943,6 +949,10 @@ onMounted(() => {
             <SelectOption value="delivered">已发货</SelectOption>
             <SelectOption value="completed">已完成</SelectOption>
             <SelectOption value="cancelled">已取消</SelectOption>
+            <SelectOption value="refund_pending">退款申请中</SelectOption>
+            <SelectOption value="refund_processing">退款处理中</SelectOption>
+            <SelectOption value="refund_approved">退款已通过</SelectOption>
+            <SelectOption value="refund_rejected">退款已拒绝</SelectOption>
           </Select>
         </FormItem>
         <FormItem label="支付状态">
