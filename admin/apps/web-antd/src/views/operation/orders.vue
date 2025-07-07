@@ -79,6 +79,11 @@ const columns = [
     width: 120,
   },
   {
+    title: '结算金额',
+    key: 'settlementAmount',
+    width: 120,
+  },
+  {
     title: '时间信息',
     key: 'time',
     width: 200,
@@ -1046,6 +1051,17 @@ onMounted(() => {
                 </Tag>
               </template>
 
+              <!-- 结算金额 -->
+              <template v-if="column.key === 'settlementAmount'">
+                <div class="price">
+                  {{
+                    record.settlementAmount
+                      ? `¥${Number(record.settlementAmount).toFixed(2)}`
+                      : '-'
+                  }}
+                </div>
+              </template>
+
               <!-- 时间信息 -->
               <template v-if="column.key === 'time'">
                 <div>
@@ -1140,6 +1156,17 @@ onMounted(() => {
                 <Tag :color="getSettlementStatusColor(record.settlementStatus)">
                   {{ getSettlementStatusText(record.settlementStatus) }}
                 </Tag>
+              </template>
+
+              <!-- 结算金额 -->
+              <template v-if="column.key === 'settlementAmount'">
+                <div class="price">
+                  {{
+                    record.settlementAmount
+                      ? `¥${Number(record.settlementAmount).toFixed(2)}`
+                      : '-'
+                  }}
+                </div>
               </template>
 
               <!-- 时间信息 -->
