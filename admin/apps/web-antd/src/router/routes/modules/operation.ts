@@ -85,6 +85,7 @@ const routes: RouteRecordRaw[] = [
       {
         meta: {
           title: '商品分类',
+          authority: ['admin'],
         },
         name: 'ProductCategory',
         path: '/product/category',
@@ -93,6 +94,7 @@ const routes: RouteRecordRaw[] = [
       {
         meta: {
           title: 'Banner管理',
+          authority: ['admin'],
         },
         name: 'ProductBanner',
         path: '/product/banner',
