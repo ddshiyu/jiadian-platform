@@ -28,7 +28,7 @@
       <view class="benefits-list">
         <view class="benefit-item">
           <view class="benefit-info">
-            <view class="benefit-title">全场9.5折优惠</view>
+            <view class="benefit-title">全场优惠价</view>
             <view class="benefit-desc">365天无限次享受折扣</view>
           </view>
         </view>

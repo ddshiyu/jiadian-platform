@@ -83,7 +83,7 @@
       <view class="vip-content">
         <view class="vip-desc">
           <text>开通年度VIP会员，全年享受专属优惠</text>
-          <text class="vip-benefits">· 全场9.5折 · 专属客服 · 豪华礼包</text>
+          <text class="vip-benefits">· 全场优惠价 · 专属客服 · 豪华礼包</text>
         </view>
         <nut-button 
           v-if="!vipInfo.isVip" 
@@ -117,7 +117,7 @@
         </view>
       </view>
       <view class="invite-tip">
-        <text>邀请好友注册下单，您可获得订单金额的{{ commissionRate }}%佣金</text>
+        <text>分享邀请链接，好友下单立得佣金</text>
       </view>
       <view class="invite-data">
         <view class="invite-data-item">
@@ -286,8 +286,6 @@ const vipInfo = reactive({
   isExpired: true
 });
 
-// 佣金比例（可以从配置中获取，这里暂时固定为5%）
-const commissionRate = ref(5);
 
 // VIP选项弹窗
 const showVipPopup = ref(false);
