@@ -309,7 +309,7 @@ router.get('/:id', adminAuth, async (req, res) => {
         {
           model: AdminUser,
           as: 'merchant',
-          attributes: ['id', 'username', 'name', 'phone', 'email', 'role']
+          attributes: ['id', 'username', 'name', 'phone', 'email', 'role', 'paymentMethods']
         },
         {
           model: OrderItem,
@@ -343,7 +343,8 @@ router.get('/:id', adminAuth, async (req, res) => {
         name: orderData.merchant.name,
         phone: orderData.merchant.phone,
         email: orderData.merchant.email,
-        role: orderData.merchant.role
+        role: orderData.merchant.role,
+        paymentMethods: orderData.merchant.paymentMethods
       } : null,
       items: orderData.OrderItems ? orderData.OrderItems.map(item => ({
         id: item.id,

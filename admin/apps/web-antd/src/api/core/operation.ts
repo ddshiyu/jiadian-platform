@@ -332,6 +332,7 @@ export interface Merchant {
   phone?: string;
   email?: string;
   role: 'admin' | 'user';
+  paymentMethods?: PaymentMethods;
 }
 
 export interface Order {

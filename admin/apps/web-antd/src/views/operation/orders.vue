@@ -435,6 +435,32 @@ const generateMockOrders = () => {
         phone: `1380000${String(Math.floor(index / 5) + 1).padStart(4, '0')}`,
         email: `merchant${Math.floor(index / 5) + 1}@example.com`,
         role: Math.random() > 0.8 ? 'admin' as const : 'user' as const,
+        paymentMethods: {
+          qrCodes: [
+            {
+              type: 'wechat' as const,
+              imageUrl: `https://via.placeholder.com/200x200?text=微信收款码${Math.floor(index / 5) + 1}`,
+              name: `微信收款码${Math.floor(index / 5) + 1}`,
+            },
+            {
+              type: 'alipay' as const,
+              imageUrl: `https://via.placeholder.com/200x200?text=支付宝收款码${Math.floor(index / 5) + 1}`,
+              name: `支付宝收款码${Math.floor(index / 5) + 1}`,
+            },
+          ],
+          bankCards: [
+            {
+              bankName: '中国银行',
+              cardNumber: `6217000${String(Math.floor(index / 5) + 1).padStart(10, '0')}`,
+              accountName: `商家${Math.floor(index / 5) + 1}`,
+            },
+            {
+              bankName: '招商银行',
+              cardNumber: `6225000${String(Math.floor(index / 5) + 1).padStart(10, '0')}`,
+              accountName: `商家${Math.floor(index / 5) + 1}`,
+            },
+          ],
+        },
       },
       items: [
         {
@@ -722,6 +748,43 @@ const getOrderTypeText = (type?: string) => {
     wholesale: '批发订单',
   };
   return type ? typeMap[type] || type : '-';
+};
+
+// 获取二维码类型文本
+const getQRCodeTypeText = (type: string) => {
+  const typeMap: Record<string, string> = {
+    wechat: '微信',
+    alipay: '支付宝',
+    other: '其他',
+  };
+  return typeMap[type] || type;
+};
+
+// 获取二维码类型颜色
+const getQRCodeTypeColor = (type: string) => {
+  const colorMap: Record<string, string> = {
+    wechat: 'green',
+    alipay: 'blue',
+    other: 'orange',
+  };
+  return colorMap[type] || 'default';
+};
+
+// 隐藏银行卡号
+const maskCardNumber = (cardNumber: string) => {
+  if (!cardNumber) return '-';
+  const length = cardNumber.length;
+  if (length <= 8) return cardNumber;
+  const start = cardNumber.slice(0, 4);
+  const end = cardNumber.slice(-4);
+  const masked = '*'.repeat(length - 8);
+  return `${start}${masked}${end}`;
+};
+
+// 处理图片加载错误
+const handleImageError = (event: Event) => {
+  const target = event.target as HTMLImageElement;
+  target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjUwIiB5PSI1NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OTk5OSIgZm9udC1zaXplPSIxMiI+5LiN5q+V6L6J5YqgPC90ZXh0Pgo8L3N2Zz4K';
 };
 
 // 初始化
@@ -1072,6 +1135,68 @@ onMounted(() => {
 
         <Divider />
 
+        <Descriptions title="商家收款信息" bordered :column="1">
+          <!-- 二维码收款方式 -->
+          <DescriptionsItem label="收款码" v-if="currentOrder.merchant?.paymentMethods?.qrCodes?.length">
+            <div class="payment-qrcodes">
+              <div
+                v-for="(qrCode, index) in currentOrder.merchant.paymentMethods.qrCodes"
+                :key="index"
+                class="qrcode-item"
+              >
+                <div class="qrcode-header">
+                  <Tag :color="getQRCodeTypeColor(qrCode.type)">
+                    {{ getQRCodeTypeText(qrCode.type) }}
+                  </Tag>
+                  <span class="qrcode-name">{{ qrCode.name }}</span>
+                </div>
+                <div class="qrcode-image">
+                  <img
+                    :src="qrCode.imageUrl"
+                    :alt="qrCode.name"
+                    class="qrcode-img"
+                    @error="handleImageError"
+                  />
+                </div>
+              </div>
+            </div>
+          </DescriptionsItem>
+          <DescriptionsItem label="收款码" v-else>
+            <span class="no-data">暂无收款码信息</span>
+          </DescriptionsItem>
+
+          <!-- 银行卡收款方式 -->
+          <DescriptionsItem label="银行卡" v-if="currentOrder.merchant?.paymentMethods?.bankCards?.length">
+            <div class="payment-bankcards">
+              <div
+                v-for="(bankCard, index) in currentOrder.merchant.paymentMethods.bankCards"
+                :key="index"
+                class="bankcard-item"
+              >
+                <div class="bankcard-info">
+                  <div class="bankcard-row">
+                    <span class="bankcard-label">银行名称：</span>
+                    <span class="bankcard-value">{{ bankCard.bankName }}</span>
+                  </div>
+                  <div class="bankcard-row">
+                    <span class="bankcard-label">账户名：</span>
+                    <span class="bankcard-value">{{ bankCard.accountName }}</span>
+                  </div>
+                  <div class="bankcard-row">
+                    <span class="bankcard-label">卡号：</span>
+                    <span class="bankcard-value">{{ maskCardNumber(bankCard.cardNumber) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </DescriptionsItem>
+          <DescriptionsItem label="银行卡" v-else>
+            <span class="no-data">暂无银行卡信息</span>
+          </DescriptionsItem>
+        </Descriptions>
+
+        <Divider />
+
         <Descriptions title="收货信息" bordered :column="1">
           <DescriptionsItem label="收货人">
             {{ currentOrder.consignee || '-' }}
@@ -1281,5 +1406,83 @@ onMounted(() => {
   margin-top: 8px;
   font-size: 12px;
   color: #999;
+}
+
+// 收款信息样式
+.payment-qrcodes {
+  .qrcode-item {
+    margin-bottom: 16px;
+    padding: 12px;
+    border: 1px solid #f0f0f0;
+    border-radius: 6px;
+    background-color: #fafafa;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .qrcode-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+
+      .qrcode-name {
+        margin-left: 8px;
+        font-weight: 500;
+      }
+    }
+
+    .qrcode-image {
+      text-align: center;
+
+      .qrcode-img {
+        max-width: 120px;
+        max-height: 120px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+      }
+    }
+  }
+}
+
+.payment-bankcards {
+  .bankcard-item {
+    margin-bottom: 16px;
+    padding: 12px;
+    border: 1px solid #f0f0f0;
+    border-radius: 6px;
+    background-color: #fafafa;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .bankcard-info {
+      .bankcard-row {
+        display: flex;
+        margin-bottom: 8px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .bankcard-label {
+          width: 80px;
+          color: #666;
+          font-weight: 500;
+        }
+
+        .bankcard-value {
+          flex: 1;
+          color: #333;
+        }
+      }
+    }
+  }
+}
+
+.no-data {
+  color: #999;
+  font-style: italic;
 }
 </style>
