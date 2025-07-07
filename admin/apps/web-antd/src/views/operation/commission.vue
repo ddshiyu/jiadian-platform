@@ -81,7 +81,7 @@ const columns = [
     dataIndex: 'amount',
     key: 'amount',
     width: 100,
-    customRender: ({ text }: { text: number }) => `¥${text.toFixed(2)}`,
+    customRender: ({ text }: { text: number }) => `¥${(+text).toFixed(2)}`,
   },
   {
     title: '状态',
@@ -422,7 +422,7 @@ const formatDate = (date: string): string => {
             {{ detailData.id }}
           </DescriptionsItem>
           <DescriptionsItem label="佣金金额">
-            <span class="price">¥{{ detailData.amount.toFixed(2) }}</span>
+            <span class="price">¥{{ (+detailData.amount).toFixed(2) }}</span>
           </DescriptionsItem>
           <DescriptionsItem label="佣金状态">
             <Tag
