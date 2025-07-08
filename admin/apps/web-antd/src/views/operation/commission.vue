@@ -43,6 +43,7 @@ import {
 interface SearchForm {
   status: null | string;
   userId: null | number;
+  phone: string;
 }
 
 // 表格列定义
@@ -114,6 +115,7 @@ const statisticsData = ref<CommissionStatistics>({
 const searchForm = reactive<SearchForm>({
   status: null,
   userId: null,
+  phone: '',
 });
 
 // 表格数据
@@ -173,6 +175,7 @@ const fetchTableData = async () => {
     const params: CommissionListParams = {
       status: searchForm.status || undefined,
       userId: searchForm.userId === null ? undefined : searchForm.userId,
+      phone: searchForm.phone || undefined,
       pageNum: pagination.current,
       pageSize: pagination.pageSize,
     };
@@ -208,6 +211,7 @@ const handleReset = () => {
   Object.assign(searchForm, {
     status: null,
     userId: null,
+    phone: '',
   });
   pagination.current = 1;
   fetchTableData();
@@ -332,6 +336,14 @@ const formatDate = (date: string): string => {
             @update:value="
               (val) => (searchForm.userId = val ? Number(val) : null)
             "
+          />
+        </FormItem>
+        <FormItem label="用户电话">
+          <Input
+            v-model:value="searchForm.phone"
+            placeholder="请输入用户电话"
+            style="width: 200px"
+            allow-clear
           />
         </FormItem>
         <FormItem>

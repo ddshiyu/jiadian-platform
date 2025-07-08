@@ -17,6 +17,7 @@ const { Op } = require('sequelize');
  * @apiParam {Number} [pageSize=10] 每页数量
  * @apiParam {String} [status] 佣金状态(pending/settled/cancelled)
  * @apiParam {String} [userId] 获得佣金的用户ID
+ * @apiParam {String} [phone] 用户电话号码（模糊查询）
  */
 router.get('/page', async (req, res) => {
   try {
@@ -29,9 +30,27 @@ router.get('/page', async (req, res) => {
     // 获取筛选参数
     const status = req.query.status;
     const userId = req.query.userId;
+    const phone = req.query.phone;
 
     // 构建查询条件
     const where = {};
+    const includeOptions = [
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'nickname', 'phone', 'avatar']
+      },
+      {
+        model: User,
+        as: 'invitee',
+        attributes: ['id', 'nickname', 'phone', 'avatar']
+      },
+      {
+        model: Order,
+        attributes: ['id', 'orderNo', 'totalAmount', 'status']
+      }
+    ];
+
     if (status) {
       where.status = status;
     }
@@ -39,28 +58,25 @@ router.get('/page', async (req, res) => {
       where.userId = userId;
     }
 
-    // 查询总数
-    const total = await Commission.count({ where });
+    // 如果有电话查询，需要使用关联查询
+    if (phone) {
+      includeOptions[0].where = {
+        phone: { [Op.like]: `%${phone}%` }
+      };
+      includeOptions[0].required = true; // 内连接，确保必须匹配到用户
+    }
+
+    // 查询总数（需要考虑关联查询条件）
+    const total = await Commission.count({
+      where,
+      include: phone ? [includeOptions[0]] : undefined,
+      distinct: true
+    });
 
     // 查询佣金记录
     const commissions = await Commission.findAll({
       where,
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'nickname', 'phone', 'avatar']
-        },
-        {
-          model: User,
-          as: 'invitee',
-          attributes: ['id', 'nickname', 'phone', 'avatar']
-        },
-        {
-          model: Order,
-          attributes: ['id', 'orderNo', 'totalAmount', 'status']
-        }
-      ],
+      include: includeOptions,
       order: [['createdAt', 'DESC']],
       limit: size,
       offset

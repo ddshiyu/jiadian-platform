@@ -723,6 +723,7 @@ export interface Commission {
 export interface CommissionListParams {
   status?: string;
   userId?: number;
+  phone?: string;
   pageNum?: number;
   pageSize?: number;
 }
