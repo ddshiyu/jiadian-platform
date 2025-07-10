@@ -252,7 +252,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, inject } from 'vue';
+import { ref, reactive, inject } from 'vue';
 import { onShow } from '@dcloudio/uni-app'
 import { onShareAppMessage } from '@dcloudio/uni-app'
 import { userApi } from '../../api/user';
@@ -399,13 +399,31 @@ const navigateToAddressList = () => {
 
 // 联系客服
 const contactCustomerService = () => {
-  uni.makePhoneCall({
-    phoneNumber: '400-123-4567',
-    fail: () => {
-      uni.showToast({
-        title: '拨打电话失败',
-        icon: 'none'
-      });
+  console.log('contactCustomerService');
+  uni.showModal({
+    title: '联系客服',
+    content: '请添加客服微信：19352187583',
+    confirmText: '复制',
+    cancelText: '取消',
+    success: (res) => {
+      if (res.confirm) {
+        // 复制微信号到剪贴板
+        uni.setClipboardData({
+          data: '19352187583',
+          success: () => {
+            uni.showToast({
+              title: '微信号已复制',
+              icon: 'success'
+            });
+          },
+          fail: () => {
+            uni.showToast({
+              title: '复制失败',
+              icon: 'none'
+            });
+          }
+        });
+      }
     }
   });
 };
