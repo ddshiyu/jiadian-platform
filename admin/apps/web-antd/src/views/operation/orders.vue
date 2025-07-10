@@ -20,6 +20,7 @@ import {
   Divider,
   Form,
   FormItem,
+  Image,
   Input,
   InputNumber,
   message,
@@ -905,12 +906,6 @@ const maskCardNumber = (cardNumber: string) => {
   return `${start}${masked}${end}`;
 };
 
-// 处理图片加载错误
-const handleImageError = (event: Event) => {
-  const target = event.target as HTMLImageElement;
-  target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjUwIiB5PSI1NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OTk5OSIgZm9udC1zaXplPSIxMiI+5LiN5q+V6L6J5YqgPC90ZXh0Pgo8L3N2Zz4K';
-};
-
 // 初始化
 onMounted(() => {
   fetchData();
@@ -1347,11 +1342,11 @@ onMounted(() => {
                   <span class="qrcode-name">{{ qrCode.name }}</span>
                 </div>
                 <div class="qrcode-image">
-                  <img
+                  <Image
                     :src="qrCode.imageUrl"
                     :alt="qrCode.name"
                     class="qrcode-img"
-                    @error="handleImageError"
+                    :preview="true"
                   />
                 </div>
               </div>
@@ -1417,11 +1412,12 @@ onMounted(() => {
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'product'">
               <div class="product-info">
-                <img
+                <Image
                   v-if="record.productCover"
                   :src="record.productCover"
                   alt="商品图片"
                   class="product-img"
+                  :preview="true"
                 />
                 <div>{{ record.productName }}</div>
               </div>
@@ -1634,6 +1630,18 @@ onMounted(() => {
     object-fit: cover;
     margin-right: 8px;
   }
+
+  :deep(.ant-image) {
+    display: inline-block;
+  }
+
+  :deep(.ant-image img) {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    margin-right: 8px;
+    cursor: pointer;
+  }
 }
 
 .upload-hint {
@@ -1669,11 +1677,23 @@ onMounted(() => {
     .qrcode-image {
       text-align: center;
 
+      :deep(.ant-image) {
+        display: inline-block;
+      }
+
       .qrcode-img {
         max-width: 120px;
         max-height: 120px;
         border: 1px solid #d9d9d9;
         border-radius: 4px;
+      }
+
+      :deep(.ant-image img) {
+        max-width: 120px;
+        max-height: 120px;
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        cursor: pointer;
       }
     }
   }

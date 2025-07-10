@@ -14,6 +14,7 @@ import {
   DescriptionsItem,
   Form,
   FormItem,
+  Image,
   Input,
   message,
   Modal,
@@ -433,9 +434,10 @@ onMounted(() => {
                   v-if="paymentMethods.qrCodes[index]?.imageUrl"
                   class="qr-preview-small"
                 >
-                  <img
+                  <Image
                     :src="paymentMethods.qrCodes[index].imageUrl"
                     alt="收款码"
+                    :preview="true"
                   />
                 </div>
                 <span v-else>未上传</span>
@@ -548,7 +550,11 @@ onMounted(() => {
             @change="handleUpload"
           >
             <div v-if="qrCodeForm.imageUrl" class="qr-preview">
-              <img :src="qrCodeForm.imageUrl" alt="收款码" />
+              <Image
+                :src="qrCodeForm.imageUrl"
+                alt="收款码"
+                :preview="true"
+              />
             </div>
             <div v-else class="upload-button">
               <PlusOutlined />
@@ -650,17 +656,27 @@ onMounted(() => {
   border-color: #1890ff;
 }
 
-.qr-preview img {
+.qr-preview :deep(.ant-image) {
+  display: block;
+}
+
+.qr-preview :deep(.ant-image img) {
   width: 100px;
   height: 100px;
   object-fit: cover;
   border-radius: 6px;
+  cursor: pointer;
 }
 
-.qr-preview-small img {
+.qr-preview-small :deep(.ant-image) {
+  display: block;
+}
+
+.qr-preview-small :deep(.ant-image img) {
   width: 40px;
   height: 40px;
   object-fit: cover;
   border-radius: 4px;
+  cursor: pointer;
 }
 </style>
