@@ -135,95 +135,11 @@
       <text class="error-text">订单信息加载失败</text>
       <nut-button type="primary" size="small" @click="fetchOrderDetail">重新加载</nut-button>
     </view>
-    
-    <!-- 底部操作按钮 -->
-    <view v-if="orderDetail" class="bottom-actions">
-      <!-- 单个主要按钮 -->
-      <nut-button 
-        v-if="orderDetail.status === 'pending_payment' && !showCancelButton" 
-        type="primary" 
-        size="large"
-        @click="payOrder"
-      >
-        立即支付
-      </nut-button>
-      
-      <nut-button 
-        v-if="orderDetail.status === 'delivered' && !showRefundOrLogistics" 
-        type="primary" 
-        size="large"
-        @click="confirmReceive"
-      >
-        确认收货
-      </nut-button>
-      
-      <!-- 两个按钮的组合 -->
-      <view v-if="orderDetail.status === 'pending_payment' && showCancelButton" class="button-group">
-        <nut-button 
-          type="primary" 
-          size="large"
-          @click="payOrder"
-        >
-          立即支付
-        </nut-button>
-        <nut-button 
-          plain 
-          size="large"
-          @click="cancelOrder"
-        >
-          取消订单
-        </nut-button>
-      </view>
-      
-      <view v-if="orderDetail.status === 'delivered' && showRefundOrLogistics" class="button-group">
-        <nut-button 
-          type="primary" 
-          size="large"
-          @click="confirmReceive"
-        >
-          确认收货
-        </nut-button>
-        <nut-button 
-          plain 
-          size="large"
-          @click="applyRefund"
-        >
-          申请退款
-        </nut-button>
-      </view>
-      
-      <view v-if="orderDetail.status === 'pending_delivery' && orderDetail.deliveryInfo?.hasDeliveryInfo" class="button-group">
-        <nut-button 
-          plain 
-          size="large"
-          @click="applyRefund"
-        >
-          申请退款
-        </nut-button>
-        <nut-button 
-          plain 
-          size="large"
-          @click="checkLogistics"
-        >
-          查看物流
-        </nut-button>
-      </view>
-      
-      <!-- 单个申请退款按钮（待发货且无物流信息） -->
-      <nut-button 
-        v-if="orderDetail.status === 'pending_delivery' && !orderDetail.deliveryInfo?.hasDeliveryInfo" 
-        plain 
-        size="large"
-        @click="applyRefund"
-      >
-        申请退款
-      </nut-button>
-    </view>
   </view>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { orderApi } from '../../api/order';
 
@@ -235,16 +151,6 @@ const orderDetail = ref(null);
 
 // 加载状态
 const loading = ref(false);
-
-// 是否显示取消按钮（与支付按钮组合）
-const showCancelButton = computed(() => {
-  return orderDetail.value?.status === 'pending_payment';
-});
-
-// 是否显示退款或物流按钮（与确认收货按钮组合）
-const showRefundOrLogistics = computed(() => {
-  return orderDetail.value?.status === 'delivered';
-});
 
 // 页面加载
 onLoad((options) => {
@@ -445,187 +351,6 @@ const copyTrackingNumber = () => {
   });
 };
 
-// 支付订单
-const payOrder = async () => {
-  try {
-    uni.showLoading({
-      title: '正在处理'
-    });
-    
-    const res = await orderApi.pay(orderId.value);
-    
-    if (res && res.code === 0) {
-      uni.hideLoading();
-      
-      if (res.data && res.data.payParams) {
-        uni.requestPayment({
-          ...res.data.payParams,
-          success: () => {
-            uni.showToast({
-              title: '支付成功',
-              icon: 'success'
-            });
-            fetchOrderDetail();
-          },
-          fail: (err) => {
-            console.error('支付失败:', err);
-            if (err.errMsg === 'requestPayment:fail cancel') {
-              uni.showToast({
-                title: '支付已取消',
-                icon: 'none'
-              });
-            } else {
-              uni.showToast({
-                title: '支付失败',
-                icon: 'none'
-              });
-            }
-          }
-        });
-      } else {
-        uni.showToast({
-          title: '支付参数获取失败',
-          icon: 'none'
-        });
-      }
-    } else {
-      throw new Error(res?.message || '支付失败');
-    }
-  } catch (error) {
-    uni.hideLoading();
-    console.error('支付失败:', error);
-    uni.showToast({
-      title: error.message || '支付失败',
-      icon: 'none'
-    });
-  }
-};
-
-// 确认收货
-const confirmReceive = async () => {
-  uni.showModal({
-    title: '确认收货',
-    content: '请确认已收到商品，确认后订单将完成',
-    success: async (res) => {
-      if (res.confirm) {
-        try {
-          uni.showLoading({
-            title: '处理中'
-          });
-          
-          const result = await orderApi.complete(orderId.value);
-          
-          uni.hideLoading();
-          
-          if (result && result.code === 0) {
-            uni.showToast({
-              title: '确认收货成功',
-              icon: 'success'
-            });
-            fetchOrderDetail();
-          } else {
-            throw new Error(result?.message || '确认收货失败');
-          }
-        } catch (error) {
-          uni.hideLoading();
-          console.error('确认收货失败:', error);
-          uni.showToast({
-            title: error.message || '确认收货失败',
-            icon: 'none'
-          });
-        }
-      }
-    }
-  });
-};
-
-// 取消订单
-const cancelOrder = async () => {
-  uni.showModal({
-    title: '取消订单',
-    content: '确定要取消这个订单吗？',
-    success: async (res) => {
-      if (res.confirm) {
-        try {
-          uni.showLoading({
-            title: '处理中'
-          });
-          
-          const result = await orderApi.cancel(orderId.value);
-          
-          uni.hideLoading();
-          
-          if (result && result.code === 0) {
-            uni.showToast({
-              title: '订单已取消',
-              icon: 'success'
-            });
-            fetchOrderDetail();
-          } else {
-            throw new Error(result?.message || '取消订单失败');
-          }
-        } catch (error) {
-          uni.hideLoading();
-          console.error('取消订单失败:', error);
-          uni.showToast({
-            title: error.message || '取消订单失败',
-            icon: 'none'
-          });
-        }
-      }
-    }
-  });
-};
-
-// 申请退款
-const applyRefund = () => {
-  uni.showModal({
-    title: '申请退款',
-    content: '请联系客服处理退款事宜',
-    showCancel: false,
-    confirmText: '联系客服',
-    success: () => {
-      // 可以跳转到客服页面或拨打客服电话
-      uni.showModal({
-        title: '联系客服',
-        content: '请添加客服微信：19352187583',
-        confirmText: '复制',
-        cancelText: '取消',
-        success: (res) => {
-          if (res.confirm) {
-            uni.setClipboardData({
-              data: '19352187583',
-              success: () => {
-                uni.showToast({
-                  title: '微信号已复制',
-                  icon: 'success'
-                });
-              }
-            });
-          }
-        }
-      });
-    }
-  });
-};
-
-// 查看物流
-const checkLogistics = () => {
-  if (!orderDetail.value.deliveryInfo.trackingNumber) {
-    uni.showToast({
-      title: '暂无物流信息',
-      icon: 'none'
-    });
-    return;
-  }
-  
-  // 这里可以跳转到物流查询页面或调用第三方物流查询
-  uni.showToast({
-    title: '物流查询功能开发中',
-    icon: 'none'
-  });
-};
-
 // 处理图片加载错误
 const handleImageError = (e) => {
   e.target.src = '/static/image/default-product.png';
@@ -636,7 +361,7 @@ const handleImageError = (e) => {
 .container {
   background-color: #f5f5f5;
   min-height: 100vh;
-  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
+  padding-bottom: 40rpx;
 }
 
 .loading-box {
@@ -876,38 +601,5 @@ const handleImageError = (e) => {
   color: #e31d1a !important;
   font-weight: bold;
   font-size: 30rpx;
-}
-
-.bottom-actions {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #fff;
-  padding: 20rpx 30rpx calc(20rpx + env(safe-area-inset-bottom)) 30rpx;
-  border-top: 1rpx solid #f5f5f5;
-}
-
-.button-group {
-  display: flex;
-  gap: 24rpx;
-  align-items: center;
-}
-
-.button-group .nut-button {
-  flex: 1;
-  min-height: 88rpx;
-}
-
-/* 单个按钮时占满宽度 */
-:deep(.nut-button--large) {
-  width: 100%;
-  min-height: 88rpx;
-}
-
-/* 按钮组中的按钮样式调整 */
-.button-group :deep(.nut-button--large) {
-  width: auto;
-  flex: 1;
 }
 </style> 
