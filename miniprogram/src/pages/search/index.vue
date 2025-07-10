@@ -85,7 +85,7 @@
               <text v-if="item.originalPrice" class="product-original-price">¥{{ item.originalPrice }}</text>
             </view>
             <!-- VIP价格 -->
-            <view v-if="item.vipPrice && item.vipPrice < item.price" class="vip-price-box">
+            <view v-if="item.vipPrice" class="vip-price-box">
               <text class="vip-label">VIP</text>
               <text class="vip-price">¥{{ Number(item.vipPrice).toFixed(2) }}</text>
             </view>
