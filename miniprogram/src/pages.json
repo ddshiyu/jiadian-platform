@@ -44,6 +44,13 @@
 			}
 		},
 		{
+			"path": "pages/order/detail",
+			"style": {
+				"navigationBarTitleText": "订单详情",
+				"enablePullDownRefresh": false
+			}
+		},
+		{
 			"path": "pages/address/list",
 			"style": {
 				"navigationBarTitleText": "收货地址",
