@@ -21,7 +21,7 @@
       <view class="contact-title">联系我们</view>
       <view class="contact-item">
         <nut-icon name="service" size="18"></nut-icon>
-        <text class="contact-text">客服电话：400-123-4567</text>
+        <text class="contact-text">客服电话：19352187583</text>
       </view>
       <view class="contact-item">
         <nut-icon name="mail" size="18"></nut-icon>
