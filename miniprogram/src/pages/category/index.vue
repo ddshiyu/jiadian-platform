@@ -143,16 +143,7 @@ const loadCategories = async () => {
 
 // 使用默认分类数据
 const useDefaultCategories = () => {
-  categoryList.value = [
-    { id: 1, name: '冰箱' },
-    { id: 2, name: '洗衣机' },
-    { id: 3, name: '电视' },
-    { id: 4, name: '空调' },
-    { id: 5, name: '厨卫电器' },
-    { id: 6, name: '生活电器' },
-    { id: 7, name: '手机' },
-    { id: 8, name: '电脑' }
-  ];
+  categoryList.value = [];
 };
 
 // 加载商品数据
@@ -205,34 +196,7 @@ const loadProducts = async () => {
 
 // 使用默认商品数据
 const useDefaultProducts = () => {
-  const productData = {
-          1: [
-        { id: 101, name: '海尔双门冰箱215升', cover: '/static/images/product1.png', price: 1999, originalPrice: 2399, vipPrice: 1899, commissionAmount: '5%' },
-        { id: 102, name: '美的三门冰箱253升', cover: '/static/images/product5.png', price: 2699, originalPrice: 3099, vipPrice: 2499, commissionAmount: 150 },
-        { id: 103, name: '容声对开门冰箱598升', cover: '/static/images/product1.png', price: 3999, originalPrice: 4599, vipPrice: 3599, commissionAmount: '8%' },
-        { id: 104, name: '西门子双开门冰箱502升', cover: '/static/images/product5.png', price: 5299, originalPrice: 5999, vipPrice: 4999, commissionAmount: 250 }
-      ],
-          2: [
-        { id: 201, name: '美的滚筒洗衣机8kg', cover: '/static/images/product2.png', price: 2599, originalPrice: 2999, vipPrice: 2299, commissionAmount: '3%' },
-        { id: 202, name: '海尔波轮洗衣机7kg', cover: '/static/images/product6.png', price: 1299, originalPrice: 1599, vipPrice: 1199, commissionAmount: 70 },
-        { id: 203, name: '西门子洗烘一体机10kg', cover: '/static/images/product2.png', price: 5999, originalPrice: 6599, vipPrice: 5599, commissionAmount: '6%' },
-        { id: 204, name: 'LG滚筒洗衣机12kg', cover: '/static/images/product6.png', price: 4899, originalPrice: 5499, vipPrice: 4499, commissionAmount: 100 }
-      ],
-          3: [
-        { id: 301, name: '创维智能电视55英寸4K', cover: '/static/images/product3.png', price: 3999, originalPrice: 4799, vipPrice: 3799, commissionAmount: '4%' },
-        { id: 302, name: '小米智能电视65英寸', cover: '/static/images/product7.png', price: 4599, originalPrice: 5299, vipPrice: 4299, commissionAmount: 200 },
-        { id: 303, name: '索尼OLED电视65英寸', cover: '/static/images/product3.png', price: 13999, originalPrice: 15999, vipPrice: 12999, commissionAmount: '7%' },
-        { id: 304, name: '三星Q70T 75英寸', cover: '/static/images/product7.png', price: 9999, originalPrice: 11999, vipPrice: 9499, commissionAmount: 250 }
-      ],
-      4: [
-        { id: 401, name: '格力空调挂机1.5匹变频', cover: '/static/images/product4.png', price: 2899, originalPrice: 3299, vipPrice: 2599, commissionAmount: '4%' },
-        { id: 402, name: '美的空调柜机3匹', cover: '/static/images/product8.png', price: 5299, originalPrice: 5999, vipPrice: 4999, commissionAmount: 150 },
-        { id: 403, name: '海尔空调挂机1匹', cover: '/static/images/product4.png', price: 1999, originalPrice: 2399, vipPrice: 1799, commissionAmount: '3%' },
-        { id: 404, name: '大金空调柜机2匹', cover: '/static/images/product8.png', price: 12999, originalPrice: 14999, vipPrice: 11999, commissionAmount: 200 }
-      ]
-  };
-  
-  productList.value = productData[currentCategory.value] || [];
+  productList.value = [];
 };
 
 // 下拉刷新

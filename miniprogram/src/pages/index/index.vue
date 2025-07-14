@@ -190,20 +190,12 @@ const fetchBanners = async () => {
       bannerList.value = res.data;
     } else {
       // 使用默认数据
-      bannerList.value = [
-        { id: 1, image: '/static/images/banner1.png', productId: 1 },
-        { id: 2, image: '/static/images/banner2.png', productId: 2 },
-        { id: 3, image: '/static/images/banner3.png', productId: 3 }
-      ];
+      bannerList.value = [];
     }
   } catch (error) {
     console.error('获取轮播图失败', error);
     // 使用默认数据
-    bannerList.value = [
-      { id: 1, image: '/static/images/banner1.png', productId: 1 },
-      { id: 2, image: '/static/images/banner2.png', productId: 2 },
-      { id: 3, image: '/static/images/banner3.png', productId: 3 }
-    ];
+    bannerList.value = [];
   } finally {
     loading.value.banners = false;
   }
@@ -219,24 +211,12 @@ const fetchCategories = async () => {
       categoryList.value = res.data.slice(0, 5);
     } else {
       // 使用默认数据
-      categoryList.value = [
-        { id: 1, name: '冰箱', icon: '/static/icons/category-fridge.png' },
-        { id: 2, name: '洗衣机', icon: '/static/icons/category-washer.png' },
-        { id: 3, name: '电视', icon: '/static/icons/category-tv.png' },
-        { id: 4, name: '空调', icon: '/static/icons/category-ac.png' },
-        { id: 5, name: '更多', icon: '/static/icons/category-more.png' }
-      ];
+      categoryList.value = [];
     }
   } catch (error) {
     console.error('获取分类失败', error);
     // 使用默认数据
-    categoryList.value = [
-      { id: 1, name: '冰箱', icon: '/static/icons/category-fridge.png' },
-      { id: 2, name: '洗衣机', icon: '/static/icons/category-washer.png' },
-      { id: 3, name: '电视', icon: '/static/icons/category-tv.png' },
-      { id: 4, name: '空调', icon: '/static/icons/category-ac.png' },
-      { id: 5, name: '更多', icon: '/static/icons/category-more.png' }
-    ];
+    categoryList.value = [];
   } finally {
     loading.value.categories = false;
   }
@@ -258,22 +238,12 @@ const fetchRecommendProducts = async () => {
       recommendProductList.value = filteredProducts.slice(0, 4);
     } else {
       // 使用默认数据
-      recommendProductList.value = [
-        { id: 9, name: '海信超薄智能电视', cover: '/static/images/product9.png', price: 2999, vipPrice: 2699, originalPrice: 3599, commissionAmount: '15%' },
-        { id: 10, name: '小米全自动洗碗机', cover: '/static/images/product10.png', price: 1899, vipPrice: 1699, originalPrice: 2199, commissionAmount: '200' },
-        { id: 11, name: 'LG变频风冷冰箱', cover: '/static/images/product11.png', price: 4299, vipPrice: 3899, originalPrice: 4999, commissionAmount: '12%' },
-        { id: 12, name: '三星智能家庭影院', cover: '/static/images/product12.png', price: 3699, vipPrice: 3299, originalPrice: 4299, commissionAmount: '350' }
-      ];
+      recommendProductList.value = [];
     }
   } catch (error) {
     console.error('获取推荐商品失败', error);
     // 使用默认数据
-    recommendProductList.value = [
-      { id: 9, name: '海信超薄智能电视', cover: '/static/images/product9.png', price: 2999, vipPrice: 2699, originalPrice: 3599, commissionAmount: '15%' },
-      { id: 10, name: '小米全自动洗碗机', cover: '/static/images/product10.png', price: 1899, vipPrice: 1699, originalPrice: 2199, commissionAmount: '200' },
-      { id: 11, name: 'LG变频风冷冰箱', cover: '/static/images/product11.png', price: 4299, vipPrice: 3899, originalPrice: 4999, commissionAmount: '12%' },
-      { id: 12, name: '三星智能家庭影院', cover: '/static/images/product12.png', price: 3699, vipPrice: 3299, originalPrice: 4299, commissionAmount: '350' }
-    ];
+    recommendProductList.value = [];
   } finally {
     loading.value.recommendProducts = false;
   }
