@@ -154,7 +154,7 @@ const columns = [
     dataIndex: 'category',
     key: 'category',
     customRender: ({ record }: { record: Product }) =>
-      record.category?.name || '-',
+      record.Category?.name || '-',
   },
   {
     title: '库存',
