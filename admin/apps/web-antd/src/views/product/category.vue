@@ -47,7 +47,7 @@ interface CategoryItem {
   name: string;
   icon: string;
   sort: number;
-  status: string;
+  status: 'active' | 'inactive';
   parentId: number;
   description: string;
 }
@@ -136,7 +136,7 @@ const modalTitle = computed(() => {
 // 搜索表单接口
 interface SearchForm {
   name: string;
-  status: string;
+  status: 'active' | 'inactive' | '';
 }
 
 // 搜索表单
@@ -174,17 +174,17 @@ const fetchCategoryData = async () => {
 };
 
 // 转换分类数据格式
-const convertCategoryData = (categories: Category[]): CategoryItem[] => {
+const convertCategoryData = (result: any): CategoryItem[] => {
   // 这里将API返回的分类数据转换为组件需要的格式
   // 只保留一级分类
-  return categories.list
+  return result.list
     .filter((item: any) => !item.parentId || item.parentId === 0)
     .map((item: any) => ({
       id: item.id || 0,
       name: item.name,
       icon: item.icon || '',
       sort: item.sort || 0,
-      status: 'active', // 根据实际API返回的状态字段调整
+      status: item.status || 'active', // 使用API返回的实际状态，默认为active
       parentId: 0,
       description: item.description || '',
     }));
@@ -295,6 +295,7 @@ const handleSubmit = async () => {
         name: formData.name,
         icon: formData.icon,
         sort: formData.sort,
+        status: formData.status, // 包含状态字段
         parentId: 0, // 始终为0，表示一级分类
       };
 
