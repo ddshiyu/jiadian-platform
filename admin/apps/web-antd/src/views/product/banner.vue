@@ -19,6 +19,7 @@ import {
   Divider,
   Form,
   FormItem,
+  Image,
   Input,
   InputNumber,
   message,
@@ -438,7 +439,12 @@ const handleImageChange = (info: UploadChangeParam) => {
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'image'">
             <div class="banner-image">
-              <img v-if="record.image" :src="record.image" alt="Banner图片" />
+              <Image
+                v-if="record.image"
+                :src="record.image"
+                alt="Banner图片"
+                :preview="true"
+              />
               <div v-else class="no-image">无</div>
             </div>
           </template>
@@ -568,10 +574,15 @@ const handleImageChange = (info: UploadChangeParam) => {
   border: 1px solid #eee;
   border-radius: 4px;
 
-  img {
+  :deep(.ant-image) {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
   }
 
   .no-image {

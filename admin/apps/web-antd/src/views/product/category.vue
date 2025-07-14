@@ -19,6 +19,7 @@ import {
   Divider,
   Form,
   FormItem,
+  Image,
   Input,
   InputNumber,
   message,
@@ -415,7 +416,12 @@ const handleIconChange = (info: UploadChangeParam) => {
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'icon'">
             <div class="category-icon">
-              <img v-if="record.icon" :src="record.icon" alt="分类图标" />
+              <Image
+                v-if="record.icon"
+                :src="record.icon"
+                alt="分类图标"
+                :preview="true"
+              />
               <div v-else class="no-icon">无</div>
             </div>
           </template>
@@ -541,10 +547,15 @@ const handleIconChange = (info: UploadChangeParam) => {
   align-items: center;
   justify-content: center;
 
-  img {
+  :deep(.ant-image) {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
   }
 
   .no-icon {

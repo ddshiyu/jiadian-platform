@@ -19,6 +19,7 @@ import {
   Divider,
   Form,
   FormItem,
+  Image,
   Input,
   InputNumber,
   message,
@@ -917,9 +918,10 @@ const handleCancelImport = () => {
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'cover'">
             <div class="product-cover">
-              <img
+              <Image
                 :src="record.cover || '/images/default-product.png'"
                 alt="商品图片"
+                :preview="true"
               />
             </div>
           </template>
@@ -1242,10 +1244,15 @@ const handleCancelImport = () => {
   overflow: hidden;
   border-radius: 4px;
 
-  img {
+  :deep(.ant-image) {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
   }
 }
 
