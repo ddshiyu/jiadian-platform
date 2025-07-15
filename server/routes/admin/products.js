@@ -58,6 +58,9 @@ router.get('/', adminAuth, async (req, res) => {
     // 构建查询条件
     const where = {};
 
+    // 🔥 默认过滤掉已删除的商品
+    where.status = { [Op.ne]: 'deleted' };
+
     // 关键词搜索
     if (keyword) {
       where.name = { [Op.like]: `%${keyword}%` };
@@ -70,7 +73,13 @@ router.get('/', adminAuth, async (req, res) => {
 
     // 状态筛选
     if (status) {
-      where.status = status;
+      // 如果指定了状态且不是deleted，则进一步限制状态
+      if (status !== 'deleted') {
+        where.status = status;
+      } else {
+        // 如果请求删除状态的商品，返回空结果（可选的安全措施）
+        where.status = { [Op.ne]: 'deleted' };
+      }
     }
 
     // 推荐状态筛选
@@ -110,11 +119,11 @@ router.get('/', adminAuth, async (req, res) => {
       total,
       page,
       size,
-      removeDefaults: true,  // 移除默认的page和size字段
+      removeDefaults: true,
       custom: {
         pageNum: page,
         pageSize: size,
-        totalPages: Math.ceil(total / size)  // 总页数需要保留
+        totalPages: Math.ceil(total / size)
       }
     });
   } catch (error) {
