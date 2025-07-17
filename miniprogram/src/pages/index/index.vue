@@ -235,7 +235,7 @@ const fetchRecommendProducts = async () => {
       const filteredProducts = await filterProductsByUserType(products);
       
       // 只取前4个推荐商品
-      recommendProductList.value = filteredProducts.slice(0, 4);
+      recommendProductList.value = filteredProducts
     } else {
       // 使用默认数据
       recommendProductList.value = [];
