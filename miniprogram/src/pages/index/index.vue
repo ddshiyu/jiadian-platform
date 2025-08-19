@@ -132,6 +132,7 @@ import { announcementApi } from '../../api/announcement.js';
 import { onLoad } from '@dcloudio/uni-app';
 import { filterProductsByUserType } from '@/utils/productFilter';
 import SelfOperatedTag from '@/components/SelfOperatedTag.vue';
+import { onShareAppMessage } from '@dcloudio/uni-app';
 
 // 获取全局用户信息
 const userInfo = inject('userInfo');
@@ -391,6 +392,21 @@ const formatCommission = (commissionAmount) => {
     return `¥${amount.toFixed(2)}`;
   }
 };
+
+
+// 小程序分享给好友
+onShareAppMessage((res) => {
+  console.log('分享给好友', res);
+  // 构建分享路径，包含邀请码
+  let sharePath = '/pages/index/index';
+  
+  return {
+    title: '发现优质好物，邀请你一起来购物！',
+    path: sharePath,
+    imageUrl: 'https://qbylxb.cn/static/20250709/6311a4fa-c4fe-4ffd-b220-73ace3876bb5.png'
+  };
+});
+
 </script>
 
 <style lang="scss">
